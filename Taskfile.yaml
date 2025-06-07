@@ -1,0 +1,45 @@
+version: '3'
+
+tasks:
+  default:
+    desc: List all available tasks
+    cmds:
+      - task --list-all
+    silent: false
+
+  venv-setup:
+    desc: Set up Python virtual environment and install dependencies
+    cmds:
+      - python3 -m venv .venv
+      - source .venv/bin/activate        
+    silent: false
+
+  venv-activate:
+    desc: Activate virtual environment
+    cmds:
+      - source .venv/bin/activate
+    silent: false
+
+  venv-clean:
+    desc: Remove virtual environment
+    cmds:
+      - rm -rf .venv
+      - echo "Virtual environment removed"
+    silent: false
+
+  agent-run:
+    desc: Run the context variable agent
+    cmds:
+      - .venv/bin/python agent.py dev
+    silent: false
+
+  agent-download-files:
+    cmds:
+      - .venv/bin/python agent.py download-files
+    desc: Download required ML models
+
+  pip-install-requirements.txt:
+    cmds:
+      - .venv/bin/pip install --upgrade pip
+      - .venv/bin/pip install -r requirements.txt
+    desc: Install requirements.txt
