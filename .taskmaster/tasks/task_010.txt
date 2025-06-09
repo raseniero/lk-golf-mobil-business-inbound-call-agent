@@ -1,0 +1,11 @@
+# Task ID: 10
+# Title: SendGrid Email Notification (MVP)
+# Status: pending
+# Dependencies: 9
+# Priority: high
+# Description: Integrate the SendGrid API into the FastAPI application. Implement logic to send an email containing the full conversation transcript (retrieved from MongoDB) to the business owner's email address (raseniero@gmail.com) after the call is completed and the transcript is stored.
+# Details:
+
+
+# Test Strategy:
+Make test calls and verify that an email is successfully sent to the specified address with the correct transcript content. Check SendGrid logs for successful API calls.

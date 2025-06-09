@@ -1,0 +1,11 @@
+# Task ID: 8
+# Title: Integrate Data Retrieval into AI Agent (MVP)
+# Status: pending
+# Dependencies: 4, 7
+# Priority: high
+# Description: Modify the LLM prompt and logic within the LiveKit agent to recognize user intents related to schedule, location, services, and pricing. Call the data retrieval functions (implemented in Task 7) based on user intent and incorporate the retrieved information into the AI agent's response.
+# Details:
+
+
+# Test Strategy:
+Make test calls asking about the schedule, locations, services, and prices. Verify that the AI agent correctly identifies the intent, retrieves the relevant data from the database, and provides accurate information in its response.

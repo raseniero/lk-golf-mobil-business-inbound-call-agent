@@ -1,0 +1,11 @@
+# Task ID: 6
+# Title: MongoDB Database Implementation
+# Status: pending
+# Dependencies: 1
+# Priority: high
+# Description: Set up a MongoDB database instance. Implement the code or scripts to create the transcripts collection. Define the document structure with fields for call_sid, customer_phone, timestamp, full_transcript_text, and summary.
+# Details:
+
+
+# Test Strategy:
+Connect to the database and verify that the collection is created. Insert and retrieve a sample document.

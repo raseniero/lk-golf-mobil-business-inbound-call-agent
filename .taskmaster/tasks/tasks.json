@@ -1,0 +1,213 @@
+{
+  "tasks": [
+    {
+      "id": 0,
+      "title": "Implement Mobile Golf Club Repair Voice AI Agent POC",
+      "description": "Build a proof-of-concept for the voice AI agent using the existing codebase. This involves hardcoding necessary data (schedule, location, services) and mocking the Calendly appointment scheduling integration.",
+      "details": "Hardcode schedule, location, and service data. Consider hardcoding schedule/location in a table within a prompt file (e.g., `./prompts/schedule_prompt.txt`) and service data potentially within `agent.py`.\nMock the Calendly integration logic within `agent.py` to simulate appointment booking without actual API calls.\nEnsure the agent utilizes the hardcoded data correctly during interactions.",
+      "testStrategy": "Manually test the agent's responses based on the hardcoded data and verify that the appointment booking process is mocked correctly.",
+      "priority": "medium",
+      "dependencies": [],
+      "status": "pending",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Update Agent Prompt with Golf Club Repair Business Context",
+          "description": "Modify the existing prompt in prompts/basic_prompt.md to include golf club repair business context, services, and conversation flow for the POC",
+          "details": "Update the agent prompt to include: business introduction (golf club repair service), available services (club repair, regripping, shaft replacement, etc.), pricing information, and conversation flow for appointment booking",
+          "status": "done",
+          "dependencies": [],
+          "parentTaskId": 0
+        },
+        {
+          "id": 2,
+          "title": "Create Hardcoded Schedule and Location Data",
+          "description": "Create a schedule_data.py file with hardcoded availability, locations, and time slots for the POC demonstration",
+          "details": "Implement hardcoded data including: available time slots (morning/afternoon), locations (mobile service areas), weekly schedule, and service duration estimates",
+          "status": "pending",
+          "dependencies": [
+            1
+          ],
+          "parentTaskId": 0
+        },
+        {
+          "id": 3,
+          "title": "Implement Mock Calendly Integration Functions",
+          "description": "Create mock functions in a calendly_mock.py file that simulate the Calendly API booking process without making actual API calls",
+          "details": "Implement mock functions for: checking availability, creating appointment slots, confirming bookings, and generating booking confirmations. Functions should log booking details and return realistic responses",
+          "status": "pending",
+          "dependencies": [
+            2
+          ],
+          "parentTaskId": 0
+        },
+        {
+          "id": 4,
+          "title": "Integrate POC Data and Functions into Agent",
+          "description": "Modify agent.py to import and use the hardcoded data and mock functions, enabling the agent to respond with realistic golf club repair information and booking capabilities",
+          "details": "Update agent.py to: import schedule_data.py and calendly_mock.py, add logic to handle booking inquiries, integrate service information into conversation flow, and ensure proper function calling for appointment scheduling",
+          "status": "pending",
+          "dependencies": [
+            3
+          ],
+          "parentTaskId": 0
+        },
+        {
+          "id": 5,
+          "title": "Test and Validate POC Agent Functionality",
+          "description": "Run comprehensive tests of the POC agent to ensure it handles golf club repair inquiries, provides service information, and completes mock booking processes correctly",
+          "details": "Test scenarios: initial greeting, service inquiries, pricing questions, availability checks, appointment booking flow, and error handling. Verify agent responses are contextually appropriate and booking confirmations are properly logged",
+          "status": "pending",
+          "dependencies": [
+            4
+          ],
+          "parentTaskId": 0
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "title": "Project Setup & Core Infrastructure",
+      "description": "Initialize the Git repository, set up the basic FastAPI project structure, define environment variables for API keys and database connections, and plan the database schemas for PostgreSQL and MongoDB based on the PRD data models. This is a high-priority POC task that serves as the foundation for the MVP implementation.",
+      "status": "pending",
+      "dependencies": [],
+      "priority": "high",
+      "details": "This task establishes the fundamental infrastructure needed for the POC and subsequent MVP development. Focus on creating a solid foundation that can be easily extended as the project grows.",
+      "testStrategy": "Verify repository setup, directory structure, and environment variable configuration. Review database schema designs. Ensure all setup components are properly configured and ready for POC development.",
+      "subtasks": []
+    },
+    {
+      "id": 2,
+      "title": "Twilio & FastAPI Webhook",
+      "description": "Configure a Twilio phone number to send incoming call webhooks to a specific endpoint in the FastAPI application. Implement the basic FastAPI endpoint to receive and acknowledge the webhook request.",
+      "details": "",
+      "testStrategy": "Use Twilio's webhook testing tools or a local tunneling service (like ngrok) to verify that Twilio successfully sends webhooks to the FastAPI endpoint and the endpoint responds correctly.",
+      "priority": "high",
+      "dependencies": [
+        1
+      ],
+      "status": "pending",
+      "subtasks": []
+    },
+    {
+      "id": 3,
+      "title": "LiveKit Integration & Basic Voice Session",
+      "description": "Integrate the LiveKit Python SDK into the FastAPI application. Implement logic within the webhook endpoint to generate a LiveKit token and initiate a new LiveKit voice session upon receiving a Twilio webhook.",
+      "details": "",
+      "testStrategy": "Verify that a LiveKit session is successfully created and a token is generated and returned to the client (which will be LiveKit's client-side component or a server-side agent).",
+      "priority": "high",
+      "dependencies": [
+        2
+      ],
+      "status": "pending",
+      "subtasks": []
+    },
+    {
+      "id": 4,
+      "title": "Basic IVR & Real-time Transcription (MVP)",
+      "description": "Configure the LiveKit voice session to use a Speech-to-Text (STT) model and a Large Language Model (LLM). Implement the initial LLM prompt for a basic greeting (\"Hi, thank you for calling...\") and enable real-time transcription of the caller's speech.",
+      "details": "",
+      "testStrategy": "Make a test call to the Twilio number and verify that the AI agent answers with the greeting and that real-time transcription is visible (e.g., in logs or a monitoring interface).",
+      "priority": "high",
+      "dependencies": [
+        3
+      ],
+      "status": "pending",
+      "subtasks": []
+    },
+    {
+      "id": 5,
+      "title": "PostgreSQL Database Implementation",
+      "description": "Set up a PostgreSQL database instance. Implement the SQL scripts to create the schedules, locations, and services tables with the specified columns (id, location_id, service_date, start_time, end_time for schedules; id, name, address for locations; id, name, description, price for services). Populate with initial test data.",
+      "details": "",
+      "testStrategy": "Connect to the database and verify that the tables are created correctly and initial data is inserted. Write basic queries to retrieve data.",
+      "priority": "high",
+      "dependencies": [
+        1
+      ],
+      "status": "pending",
+      "subtasks": []
+    },
+    {
+      "id": 6,
+      "title": "MongoDB Database Implementation",
+      "description": "Set up a MongoDB database instance. Implement the code or scripts to create the transcripts collection. Define the document structure with fields for call_sid, customer_phone, timestamp, full_transcript_text, and summary.",
+      "details": "",
+      "testStrategy": "Connect to the database and verify that the collection is created. Insert and retrieve a sample document.",
+      "priority": "high",
+      "dependencies": [
+        1
+      ],
+      "status": "pending",
+      "subtasks": []
+    },
+    {
+      "id": 7,
+      "title": "Schedule & Service Data Retrieval Logic (MVP)",
+      "description": "Implement Python functions or classes within the FastAPI application to connect to the PostgreSQL database and execute queries to retrieve schedule, location, service, and pricing information based on parameters (e.g., date, location).",
+      "details": "",
+      "testStrategy": "Write unit tests for the data retrieval functions, mocking the database connection if necessary, or use integration tests with the actual database to verify correct data is returned for various queries.",
+      "priority": "high",
+      "dependencies": [
+        5
+      ],
+      "status": "pending",
+      "subtasks": []
+    },
+    {
+      "id": 8,
+      "title": "Integrate Data Retrieval into AI Agent (MVP)",
+      "description": "Modify the LLM prompt and logic within the LiveKit agent to recognize user intents related to schedule, location, services, and pricing. Call the data retrieval functions (implemented in Task 7) based on user intent and incorporate the retrieved information into the AI agent's response.",
+      "details": "",
+      "testStrategy": "Make test calls asking about the schedule, locations, services, and prices. Verify that the AI agent correctly identifies the intent, retrieves the relevant data from the database, and provides accurate information in its response.",
+      "priority": "high",
+      "dependencies": [
+        4,
+        7
+      ],
+      "status": "pending",
+      "subtasks": []
+    },
+    {
+      "id": 9,
+      "title": "Conversation Transcription Storage Implementation (MVP)",
+      "description": "Implement logic within the FastAPI application to capture the complete conversation transcript from the LiveKit session upon call completion. Store this full transcript, along with call metadata (call SID, customer phone, timestamp), into the MongoDB transcripts collection.",
+      "details": "",
+      "testStrategy": "Make test calls and verify that a new document is created in the MongoDB transcripts collection for each call, containing the correct metadata and the full conversation transcript.",
+      "priority": "high",
+      "dependencies": [
+        4,
+        6
+      ],
+      "status": "pending",
+      "subtasks": []
+    },
+    {
+      "id": 10,
+      "title": "SendGrid Email Notification (MVP)",
+      "description": "Integrate the SendGrid API into the FastAPI application. Implement logic to send an email containing the full conversation transcript (retrieved from MongoDB) to the business owner's email address (raseniero@gmail.com) after the call is completed and the transcript is stored.",
+      "details": "",
+      "testStrategy": "Make test calls and verify that an email is successfully sent to the specified address with the correct transcript content. Check SendGrid logs for successful API calls.",
+      "priority": "high",
+      "dependencies": [
+        9
+      ],
+      "status": "pending",
+      "subtasks": []
+    },
+    {
+      "id": 11,
+      "title": "Twilio SMS Notification (MVP - Manual Booking)",
+      "description": "Use the Twilio API to send an SMS message to the business owner's phone number. Initially, this SMS should alert the owner about a potential booking lead, including the customer's name and number collected by the AI agent (as the MVP uses manual booking).",
+      "details": "",
+      "testStrategy": "Make test calls where the agent collects customer name and number. Verify that an SMS is sent to the owner's phone number containing this information. Check Twilio logs for successful API calls.",
+      "priority": "high",
+      "dependencies": [
+        4,
+        9
+      ],
+      "status": "pending",
+      "subtasks": []
+    }
+  ]
+}

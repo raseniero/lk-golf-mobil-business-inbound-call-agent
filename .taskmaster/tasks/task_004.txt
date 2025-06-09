@@ -1,0 +1,11 @@
+# Task ID: 4
+# Title: Basic IVR & Real-time Transcription (MVP)
+# Status: pending
+# Dependencies: 3
+# Priority: high
+# Description: Configure the LiveKit voice session to use a Speech-to-Text (STT) model and a Large Language Model (LLM). Implement the initial LLM prompt for a basic greeting ("Hi, thank you for calling...") and enable real-time transcription of the caller's speech.
+# Details:
+
+
+# Test Strategy:
+Make a test call to the Twilio number and verify that the AI agent answers with the greeting and that real-time transcription is visible (e.g., in logs or a monitoring interface).

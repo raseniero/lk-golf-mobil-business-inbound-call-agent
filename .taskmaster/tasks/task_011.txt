@@ -1,0 +1,11 @@
+# Task ID: 11
+# Title: Twilio SMS Notification (MVP - Manual Booking)
+# Status: pending
+# Dependencies: 4, 9
+# Priority: high
+# Description: Use the Twilio API to send an SMS message to the business owner's phone number. Initially, this SMS should alert the owner about a potential booking lead, including the customer's name and number collected by the AI agent (as the MVP uses manual booking).
+# Details:
+
+
+# Test Strategy:
+Make test calls where the agent collects customer name and number. Verify that an SMS is sent to the owner's phone number containing this information. Check Twilio logs for successful API calls.

@@ -1,0 +1,11 @@
+# Task ID: 9
+# Title: Conversation Transcription Storage Implementation (MVP)
+# Status: pending
+# Dependencies: 4, 6
+# Priority: high
+# Description: Implement logic within the FastAPI application to capture the complete conversation transcript from the LiveKit session upon call completion. Store this full transcript, along with call metadata (call SID, customer phone, timestamp), into the MongoDB transcripts collection.
+# Details:
+
+
+# Test Strategy:
+Make test calls and verify that a new document is created in the MongoDB transcripts collection for each call, containing the correct metadata and the full conversation transcript.

@@ -1,0 +1,45 @@
+# Task ID: 0
+# Title: Implement Mobile Golf Club Repair Voice AI Agent POC
+# Status: pending
+# Dependencies: None
+# Priority: medium
+# Description: Build a proof-of-concept for the voice AI agent using the existing codebase. This involves hardcoding necessary data (schedule, location, services) and mocking the Calendly appointment scheduling integration.
+# Details:
+Hardcode schedule, location, and service data. Consider hardcoding schedule/location in a table within a prompt file (e.g., `./prompts/schedule_prompt.txt`) and service data potentially within `agent.py`.
+Mock the Calendly integration logic within `agent.py` to simulate appointment booking without actual API calls.
+Ensure the agent utilizes the hardcoded data correctly during interactions.
+
+# Test Strategy:
+Manually test the agent's responses based on the hardcoded data and verify that the appointment booking process is mocked correctly.
+
+# Subtasks:
+## 1. Update Agent Prompt with Golf Club Repair Business Context [done]
+### Dependencies: None
+### Description: Modify the existing prompt in prompts/basic_prompt.md to include golf club repair business context, services, and conversation flow for the POC
+### Details:
+Update the agent prompt to include: business introduction (golf club repair service), available services (club repair, regripping, shaft replacement, etc.), pricing information, and conversation flow for appointment booking
+
+## 2. Create Hardcoded Schedule and Location Data [pending]
+### Dependencies: 0.1
+### Description: Create a schedule_data.py file with hardcoded availability, locations, and time slots for the POC demonstration
+### Details:
+Implement hardcoded data including: available time slots (morning/afternoon), locations (mobile service areas), weekly schedule, and service duration estimates
+
+## 3. Implement Mock Calendly Integration Functions [pending]
+### Dependencies: 0.2
+### Description: Create mock functions in a calendly_mock.py file that simulate the Calendly API booking process without making actual API calls
+### Details:
+Implement mock functions for: checking availability, creating appointment slots, confirming bookings, and generating booking confirmations. Functions should log booking details and return realistic responses
+
+## 4. Integrate POC Data and Functions into Agent [pending]
+### Dependencies: 0.3
+### Description: Modify agent.py to import and use the hardcoded data and mock functions, enabling the agent to respond with realistic golf club repair information and booking capabilities
+### Details:
+Update agent.py to: import schedule_data.py and calendly_mock.py, add logic to handle booking inquiries, integrate service information into conversation flow, and ensure proper function calling for appointment scheduling
+
+## 5. Test and Validate POC Agent Functionality [pending]
+### Dependencies: 0.4
+### Description: Run comprehensive tests of the POC agent to ensure it handles golf club repair inquiries, provides service information, and completes mock booking processes correctly
+### Details:
+Test scenarios: initial greeting, service inquiries, pricing questions, availability checks, appointment booking flow, and error handling. Verify agent responses are contextually appropriate and booking confirmations are properly logged
+
