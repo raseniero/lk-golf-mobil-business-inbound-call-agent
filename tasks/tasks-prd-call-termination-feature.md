@@ -11,7 +11,7 @@
 ## Tasks
 
 ### 1.0 Set Up Call Termination Infrastructure
-- [ ] 1.1 Add new event handlers for call lifecycle events
+- [x] 1.1 Add new event handlers for call lifecycle events
 - [ ] 1.2 Create a call state management system
 - [ ] 1.3 Set up call duration tracking
 - [ ] 1.4 Initialize termination phrase set in agent's `__init__`
