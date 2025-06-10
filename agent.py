@@ -1,5 +1,7 @@
 import asyncio
+import json
 import logging
+import re
 import time
 from enum import Enum, auto
 from typing import Optional, Dict, Any, Set, Iterable
@@ -189,6 +191,166 @@ class SimpleAgent(Agent):
     def call_metadata(self) -> Dict[str, Any]:
         """Get a copy of the call metadata."""
         return self._call_metadata.copy()
+
+    async def _on_user_input(self, text: str) -> None:
+        """Process user input and check for termination phrases.
+        
+        This is an alias for on_user_input for backward compatibility with tests.
+        """
+        await self.on_user_input(text)
+        
+    async def on_user_input(self, text: str) -> None:
+        """Process user input and check for termination phrases.
+        
+        This method is called when user input is received. It checks if the input
+        contains any termination phrases and handles the call termination flow if needed.
+        
+        Args:
+            text: The user input text to process. Can be None or empty.
+        """
+        if not text or not text.strip():
+            # Skip empty or whitespace-only input
+            return
+            
+        # Normalize the input for case-insensitive matching
+        normalized_input = text.lower().strip()
+        logger.debug(f"Processing input: '{normalized_input}'")
+        
+        # Split the input into words for more precise matching
+        words = normalized_input.split()
+        logger.debug(f"  Words in input: {words}")
+        
+        # Check if any termination phrase is in the input
+        for phrase in self.termination_phrases:
+            # Normalize the phrase for matching
+            normalized_phrase = phrase.lower()
+            logger.debug(f"  Checking against phrase: '{normalized_phrase}'")
+            
+            # Check for exact match first
+            if normalized_input == normalized_phrase:
+                logger.debug(f"    Exact match found for '{normalized_phrase}'")
+                await self._handle_termination_phrase(phrase)
+                return
+                
+            # Check if the phrase is a complete word in the input
+            if normalized_phrase in words:
+                logger.debug(f"    Complete word match for '{normalized_phrase}' in words: {words}")
+                await self._handle_termination_phrase(phrase)
+                return
+            
+            # Check for phrase at the start of the input with word boundary
+            if normalized_input.startswith(normalized_phrase):
+                # Check if it's followed by a non-word character or end of string
+                next_char_pos = len(normalized_phrase)
+                if next_char_pos >= len(normalized_input):
+                    logger.debug(f"    Start match (end of string) for '{normalized_phrase}' in '{normalized_input}'")
+                    await self._handle_termination_phrase(phrase)
+                    return
+                elif not normalized_input[next_char_pos].isalnum():
+                    logger.debug(f"    Start match with boundary for '{normalized_phrase}' in '{normalized_input}'")
+                    await self._handle_termination_phrase(phrase)
+                    return
+                else:
+                    logger.debug(f"    Partial start match (word continues) for '{normalized_phrase}' in '{normalized_input}'")
+            
+            # Check for phrase at the end of the input with word boundary
+            if normalized_input.endswith(normalized_phrase):
+                # Check if it's preceded by a non-word character or start of string
+                prev_char_pos = len(normalized_input) - len(normalized_phrase) - 1
+                if prev_char_pos < 0:
+                    logger.debug(f"    End match (start of string) for '{normalized_phrase}' in '{normalized_input}'")
+                    await self._handle_termination_phrase(phrase)
+                    return
+                elif not normalized_input[prev_char_pos].isalnum():
+                    logger.debug(f"    End match with boundary for '{normalized_phrase}' in '{normalized_input}'")
+                    await self._handle_termination_phrase(phrase)
+                    return
+                else:
+                    logger.debug(f"    Partial end match (word continues) for '{normalized_phrase}' in '{normalized_input}'")
+            
+            # Check for phrase in the middle of the input with word boundaries
+            if f' {normalized_phrase} ' in f' {normalized_input} ':
+                logger.debug(f"    Middle match for '{normalized_phrase}' in '{normalized_input}'")
+                await self._handle_termination_phrase(phrase)
+                return
+                
+            # Check for phrase followed by punctuation
+            for punct in ['.', ',', '!', '?']:
+                if f' {normalized_phrase}{punct}' in f' {normalized_input} ':
+                    logger.debug(f"    Punctuation match for '{normalized_phrase}{punct}' in '{normalized_input}'")
+                    await self._handle_termination_phrase(phrase)
+                    return
+        
+        # If we get here, no termination phrase was found
+        logger.debug("  No termination phrase found in input")
+        
+        logger.debug(f"  No termination phrase found in '{normalized_input}'")
+        
+        # For non-matching input, always call generate_reply if we have a session
+        # and we're not already in the process of terminating
+        if self._agent_session and self._call_state != CallState.TERMINATING:
+            try:
+                # Log that we're generating a reply for non-matching input
+                logger.debug(f"No termination phrase detected, generating reply for input: {text}")
+                await self._agent_session.generate_reply()
+            except Exception as e:
+                logger.error(f"Error generating reply: {e}", exc_info=True)
+        else:
+            logger.debug("Skipping generate_reply - no active session or call is terminating")
+                
+    async def _handle_termination_phrase(self, phrase: str) -> None:
+        """Handle the detection of a termination phrase.
+        
+        Args:
+            phrase: The termination phrase that was detected.
+        """
+        try:
+            # Log the termination attempt
+            logger.info(f"Termination phrase detected: '{phrase}' in input")
+            
+            # Call the termination handler
+            await self.terminate_call()
+            
+        except Exception as e:
+            logger.error(f"Error during call termination: {e}", exc_info=True)
+            # Don't re-raise to allow normal processing to continue if termination fails
+            
+    async def terminate_call(self) -> None:
+        """Handle call termination.
+        
+        This method performs the necessary cleanup and state transitions
+        when a call is terminated by the user.
+        """
+        if self._call_state == CallState.ENDED:
+            logger.warning("Call already ended, ignoring termination request")
+            return
+            
+        logger.info("Initiating call termination...")
+        
+        # Set call state to TERMINATING
+        await self._set_call_state(CallState.TERMINATING)
+        
+        try:
+            # End the call session
+            self.call_session.end_call()
+            
+            # Log call duration if available
+            duration = self.call_session.get_duration()
+            if duration is not None:
+                self._call_metadata["duration"] = duration
+                logger.info(f"Call duration: {duration:.2f} seconds")
+                
+            # Clean up call resources
+            self._cleanup_call_resources()
+            
+            # Set final call state
+            await self._set_call_state(CallState.ENDED)
+            logger.info("Call terminated successfully")
+            
+        except Exception as e:
+            logger.error(f"Error during call termination: {e}", exc_info=True)
+            await self._set_call_state(CallState.ERROR, error=str(e))
+            raise
 
 
 async def setup_room_handlers(room: rtc.Room, agent: SimpleAgent):
