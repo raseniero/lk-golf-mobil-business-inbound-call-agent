@@ -21,6 +21,25 @@ class CallState(Enum):
     ENDED = auto()          # Call has ended
     ERROR = auto()          # Call is in error state
 
+class CallSession:
+    """Encapsulates call timing logic for duration tracking."""
+    def __init__(self):
+        self.start_time: Optional[float] = None
+        self.end_time: Optional[float] = None
+
+    def start_call(self):
+        self.start_time = time.time()
+        self.end_time = None
+
+    def end_call(self):
+        if self.start_time is not None:
+            self.end_time = time.time()
+
+    def get_duration(self) -> Optional[float]:
+        if self.start_time is not None and self.end_time is not None:
+            return self.end_time - self.start_time
+        return None
+
 load_dotenv()
 
 logger = logging.getLogger("listen-and-respond")
@@ -30,7 +49,7 @@ logger.setLevel(logging.INFO)
 class SimpleAgent(Agent):
     def __init__(self) -> None:
         # Initialize instance variables
-        self.call_start_time: Optional[float] = None
+        self.call_session: CallSession = CallSession()
         self.room: Optional[rtc.Room] = None
         self.is_speaking: bool = False
         self.is_listening: bool = False
@@ -52,7 +71,7 @@ class SimpleAgent(Agent):
         await self._set_call_state(CallState.RINGING)
         
         try:
-            self.call_start_time = time.time()
+            self.call_session.start_call()
             self._agent_session = self.session  # Store the session from parent class
             
             # Set initial states
@@ -92,12 +111,13 @@ class SimpleAgent(Agent):
         
         try:
             # Log call duration if we have a start time
-            if self.call_start_time:
-                call_duration = time.time() - self.call_start_time
-                self._call_metadata["duration"] = call_duration
-                logger.info(f"Call ended. Duration: {call_duration:.2f} seconds")
+            self.call_session.end_call()
+            duration = self.call_session.get_duration()
+            if duration is not None:
+                self._call_metadata["duration"] = duration
+                logger.info(f"Call ended. Duration: {duration:.2f} seconds")
             else:
-                logger.info("Call ended (no start time recorded)")
+                logger.info("Call ended (no start or end time recorded)")
                 
             # Perform any cleanup
             self._cleanup_call_resources()
