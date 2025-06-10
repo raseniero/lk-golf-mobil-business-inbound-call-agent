@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 import time
@@ -20,9 +21,14 @@ logger.setLevel(logging.INFO)
 
 class SimpleAgent(Agent):
     def __init__(self) -> None:
+        # Initialize instance variables first
         self.call_start_time: Optional[float] = None
         self.room: Optional[rtc.Room] = None
+        self.is_speaking: bool = False
+        self.is_listening: bool = False
+        self._agent_session: Optional[AgentSession] = None
 
+        # Initialize the parent class with required components
         super().__init__(
             instructions=load_prompt_markdown("basic_prompt.md"),
             stt=deepgram.STT(),
@@ -31,15 +37,19 @@ class SimpleAgent(Agent):
             vad=silero.VAD.load(),
         )
 
-        # Register event handlers
-        self.on("agent_speaking", self._on_agent_speaking)
-        self.on("agent_listening", self._on_agent_listening)
-
     async def on_enter(self):
         """Called when the agent enters a call."""
         self.call_start_time = time.time()
         logger.info(f"Call started at {datetime.now().isoformat()}")
-        self.session.generate_reply()
+        self._agent_session = self.session  # Store the session from parent class
+
+        # Set initial states
+        self.is_speaking = False
+        self.is_listening = True  # Start in listening mode
+
+        # Generate initial greeting if we have a session
+        if self._agent_session:
+            await self._agent_session.generate_reply()
 
     async def _on_agent_speaking(self, is_speaking: bool):
         """Handle agent speaking state changes."""
@@ -67,9 +77,12 @@ async def setup_room_handlers(room: rtc.Room, agent: SimpleAgent):
     def on_track_published(publication, participant):
         logger.info(f"Track published by {participant.identity}")
 
-        @publication.track.on("ended")
-        def on_ended():
-            logger.info(f"Track ended from {participant.identity}")
+        # Only set up the ended handler if the track is available
+        if publication.track is not None:
+
+            @publication.track.on("ended")
+            def on_ended():
+                logger.info(f"Track ended from {participant.identity}")
 
     @room.on("track_subscribed")
     def on_track_subscribed(track, *_):
@@ -82,18 +95,32 @@ async def setup_room_handlers(room: rtc.Room, agent: SimpleAgent):
 
 
 async def entrypoint(ctx: JobContext):
+    # Connect to the LiveKit room
     await ctx.connect()
 
-    # Create agent instance
-    agent = SimpleAgent()
-    agent.room = ctx.room
+    try:
+        # Create agent instance
+        agent = SimpleAgent()
+        agent.room = ctx.room
 
-    # Set up room handlers
-    await setup_room_handlers(ctx.room, agent)
+        # Set up room handlers
+        await setup_room_handlers(ctx.room, agent)
 
-    # Create and start agent session
-    session = AgentSession()
-    await session.start(agent=agent, room=ctx.room)
+        # Create and start agent session
+        session = AgentSession()
+        await session.start(agent=agent, room=ctx.room)
+
+        # Keep the agent running until disconnected
+        while True:
+            await asyncio.sleep(1)
+            if not agent.room:
+                break
+
+    except Exception as e:
+        logger.error(f"Error in agent entrypoint: {e}", exc_info=True)
+        raise
+    finally:
+        logger.info("Agent session ended")
 
 
 if __name__ == "__main__":
