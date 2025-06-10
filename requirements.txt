@@ -2,3 +2,4 @@ livekit-agents[openai,silero,deepgram]~=1.0
 python-dotenv
 black
 pyyaml
+pytest
