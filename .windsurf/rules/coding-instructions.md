@@ -14,8 +14,7 @@ This is a guidelines to the AI Assistant for making code changes.
 
 ## Goal
 
-* **Write code that is modular**
-* **Write code that is testable**
+The goal is to write code that is modular and testable.
 
 ## Process
 
@@ -24,6 +23,7 @@ This is a guidelines to the AI Assistant for making code changes.
 1. Grab the latest code from the `main` branch
 2. Create a new branch
 3. Switch to the newly created branch, and perform code changes here
+4. Create and activate a python virtual environment
 
 ### While making code changes
 
