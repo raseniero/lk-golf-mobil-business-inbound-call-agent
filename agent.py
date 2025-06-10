@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 from enum import Enum, auto
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Set, Iterable
 from dotenv import load_dotenv
 from livekit.agents import JobContext, WorkerOptions, cli
 import livekit.rtc as rtc
@@ -14,15 +14,18 @@ from utils import load_prompt_markdown
 
 class CallState(Enum):
     """Represents the possible states of a call."""
-    IDLE = auto()           # Initial state before call starts
-    RINGING = auto()        # Call is incoming/ringing
-    ACTIVE = auto()         # Call is in progress
-    TERMINATING = auto()    # Call is being terminated
-    ENDED = auto()          # Call has ended
-    ERROR = auto()          # Call is in error state
+
+    IDLE = auto()  # Initial state before call starts
+    RINGING = auto()  # Call is incoming/ringing
+    ACTIVE = auto()  # Call is in progress
+    TERMINATING = auto()  # Call is being terminated
+    ENDED = auto()  # Call has ended
+    ERROR = auto()  # Call is in error state
+
 
 class CallSession:
     """Encapsulates call timing logic for duration tracking."""
+
     def __init__(self):
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None
@@ -40,6 +43,7 @@ class CallSession:
             return self.end_time - self.start_time
         return None
 
+
 load_dotenv()
 
 logger = logging.getLogger("listen-and-respond")
@@ -47,7 +51,16 @@ logger.setLevel(logging.INFO)
 
 
 class SimpleAgent(Agent):
-    def __init__(self) -> None:
+    # Default termination phrases (can be overridden in __init__)
+    DEFAULT_TERMINATION_PHRASES = {
+        "goodbye",
+        "end call",
+        "that's all",
+        "thank you",
+        "bye"
+    }
+
+    def __init__(self, termination_phrases: Optional[Iterable[str]] = None) -> None:
         # Initialize instance variables
         self.call_session: CallSession = CallSession()
         self.room: Optional[rtc.Room] = None
@@ -56,6 +69,12 @@ class SimpleAgent(Agent):
         self._agent_session: Optional[AgentSession] = None
         self._call_state: CallState = CallState.IDLE
         self._call_metadata: Dict[str, Any] = {}  # Store additional call-related data
+        
+        # Initialize termination phrases - use defaults if None or empty list is provided
+        if termination_phrases is None or not list(termination_phrases):
+            self.termination_phrases: Set[str] = set(self.DEFAULT_TERMINATION_PHRASES)
+        else:
+            self.termination_phrases: Set[str] = set(termination_phrases)
 
         # Initialize the parent class with required components
         super().__init__(
@@ -69,24 +88,24 @@ class SimpleAgent(Agent):
     async def on_enter(self):
         """Called when the agent enters a call."""
         await self._set_call_state(CallState.RINGING)
-        
+
         try:
             self.call_session.start_call()
             self._agent_session = self.session  # Store the session from parent class
-            
+
             # Set initial states
             self.is_speaking = False
             self.is_listening = True  # Start in listening mode
-            
+
             # Transition to active state
             await self._set_call_state(CallState.ACTIVE)
-            
+
             # Generate initial greeting if we have a session
             if self._agent_session:
                 await self._agent_session.generate_reply()
-                
+
             return True
-                
+
         except Exception as e:
             logger.error(f"Error during call setup: {e}", exc_info=True)
             await self._set_call_state(CallState.ERROR, error=str(e))
@@ -106,9 +125,9 @@ class SimpleAgent(Agent):
         """Called when the agent disconnects from the call."""
         if self._call_state == CallState.ENDED:
             return
-            
+
         await self._set_call_state(CallState.TERMINATING)
-        
+
         try:
             # Log call duration if we have a start time
             self.call_session.end_call()
@@ -118,10 +137,10 @@ class SimpleAgent(Agent):
                 logger.info(f"Call ended. Duration: {duration:.2f} seconds")
             else:
                 logger.info("Call ended (no start or end time recorded)")
-                
+
             # Perform any cleanup
             self._cleanup_call_resources()
-            
+
         except Exception as e:
             logger.error(f"Error during call termination: {e}", exc_info=True)
             await self._set_call_state(CallState.ERROR, error=str(e))
@@ -129,43 +148,43 @@ class SimpleAgent(Agent):
         finally:
             if self._call_state != CallState.ERROR:
                 await self._set_call_state(CallState.ENDED)
-    
+
     async def _set_call_state(self, new_state: CallState, **metadata):
         """Safely transition to a new call state with optional metadata.
-        
+
         Args:
             new_state: The state to transition to
             **metadata: Additional metadata to store with the state change
         """
         if self._call_state == new_state:
             return
-            
+
         old_state = self._call_state
         self._call_state = new_state
-        
+
         # Store any metadata with the state
         if metadata:
             self._call_metadata.update(metadata)
-            
+
         logger.info(
             f"Call state changed: {old_state.name} -> {new_state.name}"
             + (f" | {metadata}" if metadata else "")
         )
-    
+
     def _cleanup_call_resources(self):
         """Clean up any resources associated with the call."""
         # Reset states
         self.is_speaking = False
         self.is_listening = False
-        
+
         # Clear any call-specific data
         self._call_metadata.clear()
-    
+
     @property
     def call_state(self) -> CallState:
         """Get the current call state."""
         return self._call_state
-    
+
     @property
     def call_metadata(self) -> Dict[str, Any]:
         """Get a copy of the call metadata."""
