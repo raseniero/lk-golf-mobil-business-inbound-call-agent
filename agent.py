@@ -3,7 +3,8 @@ import logging
 import os
 import time
 from datetime import datetime
-from typing import Optional
+from enum import Enum, auto
+from typing import Optional, Dict, Any
 from pathlib import Path
 from dotenv import load_dotenv
 from livekit.agents import JobContext, WorkerOptions, cli
@@ -13,6 +14,16 @@ from livekit.plugins import openai, silero, deepgram
 
 from utils import load_prompt_markdown
 
+
+class CallState(Enum):
+    """Represents the possible states of a call."""
+    IDLE = auto()           # Initial state before call starts
+    RINGING = auto()        # Call is incoming/ringing
+    ACTIVE = auto()         # Call is in progress
+    TERMINATING = auto()    # Call is being terminated
+    ENDED = auto()          # Call has ended
+    ERROR = auto()          # Call is in error state
+
 load_dotenv()
 
 logger = logging.getLogger("listen-and-respond")
@@ -21,12 +32,14 @@ logger.setLevel(logging.INFO)
 
 class SimpleAgent(Agent):
     def __init__(self) -> None:
-        # Initialize instance variables first
+        # Initialize instance variables
         self.call_start_time: Optional[float] = None
         self.room: Optional[rtc.Room] = None
         self.is_speaking: bool = False
         self.is_listening: bool = False
         self._agent_session: Optional[AgentSession] = None
+        self._call_state: CallState = CallState.IDLE
+        self._call_metadata: Dict[str, Any] = {}  # Store additional call-related data
 
         # Initialize the parent class with required components
         super().__init__(
@@ -39,17 +52,29 @@ class SimpleAgent(Agent):
 
     async def on_enter(self):
         """Called when the agent enters a call."""
-        self.call_start_time = time.time()
-        logger.info(f"Call started at {datetime.now().isoformat()}")
-        self._agent_session = self.session  # Store the session from parent class
-
-        # Set initial states
-        self.is_speaking = False
-        self.is_listening = True  # Start in listening mode
-
-        # Generate initial greeting if we have a session
-        if self._agent_session:
-            await self._agent_session.generate_reply()
+        await self._set_call_state(CallState.RINGING)
+        
+        try:
+            self.call_start_time = time.time()
+            self._agent_session = self.session  # Store the session from parent class
+            
+            # Set initial states
+            self.is_speaking = False
+            self.is_listening = True  # Start in listening mode
+            
+            # Transition to active state
+            await self._set_call_state(CallState.ACTIVE)
+            
+            # Generate initial greeting if we have a session
+            if self._agent_session:
+                await self._agent_session.generate_reply()
+                
+            return True
+                
+        except Exception as e:
+            logger.error(f"Error during call setup: {e}", exc_info=True)
+            await self._set_call_state(CallState.ERROR, error=str(e))
+            raise  # Re-raise the exception to fail the operation
 
     async def _on_agent_speaking(self, is_speaking: bool):
         """Handle agent speaking state changes."""
@@ -63,11 +88,71 @@ class SimpleAgent(Agent):
 
     async def on_disconnect(self):
         """Called when the agent disconnects from the call."""
-        if self.call_start_time:
-            call_duration = time.time() - self.call_start_time
-            logger.info(f"Call ended. Duration: {call_duration:.2f} seconds")
-        else:
-            logger.info("Call ended (no start time recorded)")
+        if self._call_state == CallState.ENDED:
+            return
+            
+        await self._set_call_state(CallState.TERMINATING)
+        
+        try:
+            # Log call duration if we have a start time
+            if self.call_start_time:
+                call_duration = time.time() - self.call_start_time
+                self._call_metadata["duration"] = call_duration
+                logger.info(f"Call ended. Duration: {call_duration:.2f} seconds")
+            else:
+                logger.info("Call ended (no start time recorded)")
+                
+            # Perform any cleanup
+            self._cleanup_call_resources()
+            
+        except Exception as e:
+            logger.error(f"Error during call termination: {e}", exc_info=True)
+            await self._set_call_state(CallState.ERROR, error=str(e))
+            raise
+        finally:
+            if self._call_state != CallState.ERROR:
+                await self._set_call_state(CallState.ENDED)
+    
+    async def _set_call_state(self, new_state: CallState, **metadata):
+        """Safely transition to a new call state with optional metadata.
+        
+        Args:
+            new_state: The state to transition to
+            **metadata: Additional metadata to store with the state change
+        """
+        if self._call_state == new_state:
+            return
+            
+        old_state = self._call_state
+        self._call_state = new_state
+        
+        # Store any metadata with the state
+        if metadata:
+            self._call_metadata.update(metadata)
+            
+        logger.info(
+            f"Call state changed: {old_state.name} -> {new_state.name}"
+            + (f" | {metadata}" if metadata else "")
+        )
+    
+    def _cleanup_call_resources(self):
+        """Clean up any resources associated with the call."""
+        # Reset states
+        self.is_speaking = False
+        self.is_listening = False
+        
+        # Clear any call-specific data
+        self._call_metadata.clear()
+    
+    @property
+    def call_state(self) -> CallState:
+        """Get the current call state."""
+        return self._call_state
+    
+    @property
+    def call_metadata(self) -> Dict[str, Any]:
+        """Get a copy of the call metadata."""
+        return self._call_metadata.copy()
 
 
 async def setup_room_handlers(room: rtc.Room, agent: SimpleAgent):
