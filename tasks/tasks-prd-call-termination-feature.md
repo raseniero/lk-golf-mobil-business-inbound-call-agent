@@ -98,10 +98,10 @@
   - [x] Document any test dependencies
 
   ### After Implementation
-  - [ ] Run all tests: `python -m pytest -v`
-  - [ ] Commit changes with message: "test: Add stubs for termination flow tests"
-  - [ ] Push branch and create PR to `main`
-  - [ ] Assign PR to `raseniero`
+  - [x] Run all tests: `python -m pytest -v`
+  - [x] Commit changes with message: "test: Add stubs for termination flow tests"
+  - [x] Push branch and create PR to `main`
+  - [x] Assign PR to `raseniero`
 
 ### 2.0 Implement Termination Phrase Detection
 - [ ] 2.1 Create phrase detection utility function
