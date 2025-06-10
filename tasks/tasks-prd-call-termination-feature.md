@@ -14,7 +14,51 @@
 - [x] 1.1 Add new event handlers for call lifecycle events
 - [x] 1.2 Create a call state management system
 - [x] 1.3 Set up call duration tracking
-- [ ] 1.4 Initialize termination phrase set in agent's `__init__`
+- [x] 1.4 Initialize termination phrase set in agent's `__init__`
+  ### Before Starting
+  - [ ] Ensure you're on the latest `main` branch
+  - [ ] Create a new branch: `feature/termination-phrase-init`
+  - [ ] Set up Python virtual environment if not already active
+
+  ### Implementation Steps
+  1. **Add Default Phrases Constant**
+     - Add to `agent.py`:
+       ```python
+       DEFAULT_TERMINATION_PHRASES = {
+           "goodbye",
+           "end call",
+           "that's all",
+           "thank you",
+           "bye"
+       }
+       ```
+
+  2. **Update `__init__` Method**
+     - Add parameter: `termination_phrases: Optional[Iterable[str]] = None`
+     - Initialize instance variable: `self.termination_phrases: Set[str]`
+     - Use provided phrases or default: `self.termination_phrases = set(termination_phrases or self.DEFAULT_TERMINATION_PHRASES)`
+
+  3. **Add Type Hints**
+     - Import required types: `from typing import Iterable, Set, Optional`
+
+  ### Testing Requirements
+  - [ ] Create test file: `tests/test_termination_phrases.py`
+  - Test cases:
+    1. Initialize with default phrases
+    2. Initialize with custom phrases
+    3. Initialize with empty list (should use defaults)
+    4. Verify phrases are stored as a set
+
+  ### Documentation
+  - [ ] Update `__init__` docstring with new parameter
+  - [ ] Add type hints for better code clarity
+  - [ ] Include example usage in docstring
+
+  ### After Implementation
+  - [ ] Run all tests: `python -m pytest -v`
+  - [ ] Commit changes with message: "feat: Initialize termination phrases in agent"
+  - [ ] Push branch and create PR to `main`
+  - [ ] Assign PR to `raseniero`
 - [ ] 1.5 Add test stubs for new functionality
 
 ### 2.0 Implement Termination Phrase Detection
