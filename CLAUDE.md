@@ -81,6 +81,25 @@ npm install    # Install Node.js tooling dependencies
 .venv/bin/black .    # Format Python code using Black
 ```
 
+### Logging Configuration
+
+Configure logging verbosity using the `LOG_LEVEL` environment variable:
+
+```bash
+# Debug mode (verbose logging)
+LOG_LEVEL=DEBUG task agent-run
+
+# Production mode (minimal logging)  
+LOG_LEVEL=WARNING task agent-run
+
+# Default (balanced logging)
+LOG_LEVEL=INFO task agent-run
+```
+
+Available levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+
+The agent uses conditional debug logging for performance optimization in high-frequency operations like user input processing.
+
 ## Task Master AI Integration
 
 This project uses Task Master AI for project management and task tracking:
@@ -110,3 +129,4 @@ Create a `.env` file with required API keys:
 - `OPENAI_API_KEY`: For LLM and TTS services
 - `DEEPGRAM_API_KEY`: For STT services
 - `LIVEKIT_URL` and `LIVEKIT_API_KEY`: For LiveKit server connection
+- `LOG_LEVEL`: Optional logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) - defaults to INFO

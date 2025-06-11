@@ -1,7 +1,8 @@
 import unittest
 from agent import SimpleAgent, CallState
 
-class TestTerminationPhrases(unittest.TestCase):    
+
+class TestTerminationPhrases(unittest.TestCase):
     def test_default_phrases_initialization(self):
         """Test that default phrases are initialized correctly."""
         agent = SimpleAgent()
@@ -15,7 +16,7 @@ class TestTerminationPhrases(unittest.TestCase):
         """Test initialization with custom phrases."""
         custom_phrases = ["adios", "hasta luego", "chao"]
         agent = SimpleAgent(termination_phrases=custom_phrases)
-        
+
         self.assertEqual(len(agent.termination_phrases), 3)
         self.assertIn("adios", agent.termination_phrases)
         self.assertIn("hasta luego", agent.termination_phrases)
@@ -33,10 +34,11 @@ class TestTerminationPhrases(unittest.TestCase):
         """Test that phrases are stored as a set for O(1) lookups."""
         agent = SimpleAgent()
         self.assertIsInstance(agent.termination_phrases, set)
-        
+
         # Test O(1) lookup
         self.assertIn("goodbye", agent.termination_phrases)
         self.assertNotIn("nonexistent_phrase", agent.termination_phrases)
+
 
 if __name__ == "__main__":
     unittest.main()
