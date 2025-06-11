@@ -126,7 +126,7 @@
 - [x] 3.5 Add tests for call termination flow
 
 ### 4.0 Implement Logging System
-- [x] 4.2 Add call start/end timestamp logging
+- [x] 4.1 Define log message format for call termination
 - [x] 4.2 Add call start/end timestamp logging
 - [x] 4.3 Log detected termination phrases
 - [x] 4.4 Add call duration calculation

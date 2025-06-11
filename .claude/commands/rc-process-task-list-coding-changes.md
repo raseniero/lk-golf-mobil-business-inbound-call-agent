@@ -33,25 +33,21 @@ When working with task lists, the AI must:
 5. Before starting work, check which sub‑task is next.
 6. After implementing a sub‑task, update the file and then pause for user approval.
 
-## Making Code Changes
+## Making Code Changes Instructions
 
-This is a guidelines to the AI Assistant for making code changes. The goal is to write code that is modular and testable.
+This is a set of instructions to the AI Assistant for making code changes. The goal is to write code that is modular and testable.
 
-### Before making code changes
-
-1. Grab the latest code from the `main` branch
-2. Create a new branch
-3. Switch to the newly created branch, and perform code changes here
-4. Create and activate a python virtual environment
-
-### While making code changes
-
-1. Write unit test to satisfy the requirement
-2. Write code, until all unit tests pass
-
-### After making code changes
-
-1. Commit code changes to local repo
-2. Push changes to Github.com
-3. Create a PR from the newly create branch to the `main` branch
-4. Assign the new PR to `raseniero`
+1. Before making code changes
+1.1. Grab the latest code from the `main` branch
+1.2. Create a new branch
+1.3. Switch to the newly created branch, and perform code changes here
+1.4. Create and activate a python virtual environment
+2. While making code changes
+2.1. Write unit test to satisfy the requirement
+2.2. Write code, until all unit tests pass
+3. Completing making code changes
+3.1. Commit all changes to local repo
+3.2. Push changes to Github.com
+3.3. Create a PR from the newly create branch to the `main` branch
+3.4. Assign the new PR to `raseniero`
+3.5. Add 'GitHub Copilot' as a reviewer
