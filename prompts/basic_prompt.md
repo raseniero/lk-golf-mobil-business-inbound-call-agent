@@ -38,7 +38,7 @@ You are a professional voice AI agent for a mobile golf club repair service in O
 |------------------------|---|---|---|---|---|---|---|---|---|----|----|----|----|----|----|----|----|----|----|----|----|----|----|----|----|----|
 | Ala Wai Golf Course  | x |   |   |   |   |   |   |   |   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |
 | Moanalua Golf Club     |   | x |   |   |   |   |   |   |   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |  x |
-| Ko'olau Golf Club      |   |   | x |   |   |   |   |   |   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |  x |    |
+| Honolulu Country Club      |   |   | x |   |   |   |   |   |   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |    |  x |    |
 | Pali Golf Course       |   |   |   | x |   |   |   |   |   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |  x |    |    |
 | Bayview Golf Park      |   |   |   |   | x |   |   |   |   |    |    |    |    |    |    |    |    |    |    |    |    |    |  x |    |    |    |
 | Turtle Bay Golf        |   |   |   |   |   | x |   |   |   |    |    |    |    |    |    |    |    |    |    |    |    |  x |    |    |    |    |

@@ -2,6 +2,7 @@ import unittest
 import time
 from agent import CallSession
 
+
 class TestCallTermination(unittest.TestCase):
     def test_call_duration_tracking(self):
         """Test that call duration is tracked correctly from start to end."""
@@ -18,5 +19,6 @@ class TestCallTermination(unittest.TestCase):
         self.assertGreater(duration, 0)
         self.assertAlmostEqual(duration, end - start, places=3)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
