@@ -106,7 +106,7 @@
 
 ### 2.0 Implement Termination Phrase Detection
 - [x] 2.1 Create phrase detection utility function
-- [ ] 2.2 Add case-insensitive phrase matching
+- [x] 2.2 Add case-insensitive phrase matching
 - [ ] 2.3 Handle partial matches in user input
 - [ ] 2.4 Add tests for phrase detection
 - [ ] 2.5 Optimize phrase lookup performance
