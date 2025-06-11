@@ -11,6 +11,9 @@
 - `tests/test_phrase_detection.py` - Test suite for phrase detection utility function
 - `tests/test_call_termination_logic.py` - Comprehensive test suite for call termination logic (27 tests)
 - `tests/test_timestamp_logging.py` - Test suite for call start/end timestamp logging (10 tests)
+- `tests/test_phrase_detection_performance.py` - Performance tests for optimized phrase detection
+- `tests/test_call_termination_logic.py` - Comprehensive test suite for call termination logic (27 tests)
+- `tests/test_logging_format.py` - Test suite for standardized logging format (10 tests)
 
 ## Tasks
 
@@ -121,7 +124,7 @@
 - [x] 3.5 Add tests for call termination flow
 
 ### 4.0 Implement Logging System
-- [ ] 4.1 Define log message format for call termination
+- [x] 4.2 Add call start/end timestamp logging
 - [x] 4.2 Add call start/end timestamp logging
 - [ ] 4.3 Log detected termination phrases
 - [ ] 4.4 Add call duration calculation

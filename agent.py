@@ -154,7 +154,7 @@ class SimpleAgent(Agent):
             return True
 
         except Exception as e:
-            logger.error(f"Error during call setup: {e}", exc_info=True)
+            self._log_call_error("Error during call setup", e)
             await self._set_call_state(CallState.ERROR, error=str(e))
             raise  # Re-raise the exception to fail the operation
 
@@ -264,29 +264,31 @@ class SimpleAgent(Agent):
             # Skip empty or whitespace-only input
             return
             
-        logger.debug(f"Processing input: '{text}'")
+        self._log_call_debug("Processing user input", {"input_text": text})
         
         # Use the utility function to detect termination phrases
         detected_phrase = detect_termination_phrase(text, self.termination_phrases)
         
         if detected_phrase:
-            logger.debug(f"Termination phrase detected: '{detected_phrase}' in input: '{text}'")
+            self._log_call_event("PHRASE_DETECTED", {
+                "phrase": detected_phrase,
+                "input_text": text
+            })
             await self._handle_termination_phrase(detected_phrase)
             return
         
-        logger.debug(f"No termination phrase found in '{text}'")
+        self._log_call_debug("No termination phrase found", {"input_text": text})
         
         # For non-matching input, always call generate_reply if we have a session
         # and we're not already in the process of terminating
         if self._agent_session and self._call_state != CallState.TERMINATING:
             try:
-                # Log that we're generating a reply for non-matching input
-                logger.debug(f"No termination phrase detected, generating reply for input: {text}")
+                self._log_call_debug("Generating reply for normal input", {"input_text": text})
                 await self._agent_session.generate_reply()
             except Exception as e:
-                logger.error(f"Error generating reply: {e}", exc_info=True)
+                self._log_call_error("Error generating reply", e, {"input_text": text})
         else:
-            logger.debug("Skipping generate_reply - no active session or call is terminating")
+            self._log_call_debug("Skipping generate_reply - no active session or call is terminating")
                 
     async def _handle_termination_phrase(self, phrase: str) -> None:
         """Handle the detection of a termination phrase.
@@ -298,8 +300,7 @@ class SimpleAgent(Agent):
             phrase: The termination phrase that was detected.
         """
         try:
-            # Log the termination attempt
-            logger.info(f"Termination phrase detected: '{phrase}' in input")
+            self._log_call_event("TERMINATION_INITIATED", {"phrase": phrase})
             
             # Provide immediate acknowledgment response
             await self._send_immediate_termination_response(phrase)
@@ -308,7 +309,7 @@ class SimpleAgent(Agent):
             await self.terminate_call()
             
         except Exception as e:
-            logger.error(f"Error during call termination: {e}", exc_info=True)
+            self._log_call_error("Error during call termination", e, {"phrase": phrase})
             # Don't re-raise to allow normal processing to continue if termination fails
     
     async def _send_immediate_termination_response(self, detected_phrase: str) -> None:
@@ -393,10 +394,10 @@ class SimpleAgent(Agent):
         - Error recovery
         """
         if self._call_state == CallState.ENDED:
-            logger.warning("Call already ended, ignoring termination request")
+            self._log_call_debug("Call already ended, ignoring termination request")
             return
             
-        logger.info("Initiating call termination...")
+        self._log_call_event("CALL_TERMINATION", {"action": "initiating"})
         
         # Set call state to TERMINATING
         await self._set_call_state(CallState.TERMINATING)
@@ -412,6 +413,7 @@ class SimpleAgent(Agent):
             duration = self.call_session.get_duration()
             if duration is not None:
                 self._call_metadata["duration"] = duration
+
                 logger.info(f"Call duration: {duration:.2f} seconds")
             
             # Log comprehensive call lifecycle summary
@@ -425,10 +427,12 @@ class SimpleAgent(Agent):
             
             # Set final call state
             await self._set_call_state(CallState.ENDED)
-            logger.info("Call terminated successfully")
+            self._log_call_event("CALL_TERMINATED", {"status": "success"})
             
         except Exception as e:
+
             logger.error(f"Error during call termination cleanup: {e}", exc_info=True)
+            
             await self._set_call_state(CallState.ERROR, error=str(e))
             # Still try to clean up resources
             try:
