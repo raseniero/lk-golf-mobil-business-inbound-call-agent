@@ -11,7 +11,7 @@ import livekit.rtc as rtc
 from livekit.agents.voice import Agent, AgentSession
 from livekit.plugins import openai, silero, deepgram
 
-from utils import load_prompt_markdown
+from utils import load_prompt_markdown, detect_termination_phrase
 
 
 class CallState(Enum):
@@ -212,79 +212,17 @@ class SimpleAgent(Agent):
             # Skip empty or whitespace-only input
             return
             
-        # Normalize the input for case-insensitive matching
-        normalized_input = text.lower().strip()
-        logger.debug(f"Processing input: '{normalized_input}'")
+        logger.debug(f"Processing input: '{text}'")
         
-        # Split the input into words for more precise matching
-        words = normalized_input.split()
-        logger.debug(f"  Words in input: {words}")
+        # Use the utility function to detect termination phrases
+        detected_phrase = detect_termination_phrase(text, self.termination_phrases)
         
-        # Check if any termination phrase is in the input
-        for phrase in self.termination_phrases:
-            # Normalize the phrase for matching
-            normalized_phrase = phrase.lower()
-            logger.debug(f"  Checking against phrase: '{normalized_phrase}'")
-            
-            # Check for exact match first
-            if normalized_input == normalized_phrase:
-                logger.debug(f"    Exact match found for '{normalized_phrase}'")
-                await self._handle_termination_phrase(phrase)
-                return
-                
-            # Check if the phrase is a complete word in the input
-            if normalized_phrase in words:
-                logger.debug(f"    Complete word match for '{normalized_phrase}' in words: {words}")
-                await self._handle_termination_phrase(phrase)
-                return
-            
-            # Check for phrase at the start of the input with word boundary
-            if normalized_input.startswith(normalized_phrase):
-                # Check if it's followed by a non-word character or end of string
-                next_char_pos = len(normalized_phrase)
-                if next_char_pos >= len(normalized_input):
-                    logger.debug(f"    Start match (end of string) for '{normalized_phrase}' in '{normalized_input}'")
-                    await self._handle_termination_phrase(phrase)
-                    return
-                elif not normalized_input[next_char_pos].isalnum():
-                    logger.debug(f"    Start match with boundary for '{normalized_phrase}' in '{normalized_input}'")
-                    await self._handle_termination_phrase(phrase)
-                    return
-                else:
-                    logger.debug(f"    Partial start match (word continues) for '{normalized_phrase}' in '{normalized_input}'")
-            
-            # Check for phrase at the end of the input with word boundary
-            if normalized_input.endswith(normalized_phrase):
-                # Check if it's preceded by a non-word character or start of string
-                prev_char_pos = len(normalized_input) - len(normalized_phrase) - 1
-                if prev_char_pos < 0:
-                    logger.debug(f"    End match (start of string) for '{normalized_phrase}' in '{normalized_input}'")
-                    await self._handle_termination_phrase(phrase)
-                    return
-                elif not normalized_input[prev_char_pos].isalnum():
-                    logger.debug(f"    End match with boundary for '{normalized_phrase}' in '{normalized_input}'")
-                    await self._handle_termination_phrase(phrase)
-                    return
-                else:
-                    logger.debug(f"    Partial end match (word continues) for '{normalized_phrase}' in '{normalized_input}'")
-            
-            # Check for phrase in the middle of the input with word boundaries
-            if f' {normalized_phrase} ' in f' {normalized_input} ':
-                logger.debug(f"    Middle match for '{normalized_phrase}' in '{normalized_input}'")
-                await self._handle_termination_phrase(phrase)
-                return
-                
-            # Check for phrase followed by punctuation
-            for punct in ['.', ',', '!', '?']:
-                if f' {normalized_phrase}{punct}' in f' {normalized_input} ':
-                    logger.debug(f"    Punctuation match for '{normalized_phrase}{punct}' in '{normalized_input}'")
-                    await self._handle_termination_phrase(phrase)
-                    return
+        if detected_phrase:
+            logger.debug(f"Termination phrase detected: '{detected_phrase}' in input: '{text}'")
+            await self._handle_termination_phrase(detected_phrase)
+            return
         
-        # If we get here, no termination phrase was found
-        logger.debug("  No termination phrase found in input")
-        
-        logger.debug(f"  No termination phrase found in '{normalized_input}'")
+        logger.debug(f"No termination phrase found in '{text}'")
         
         # For non-matching input, always call generate_reply if we have a session
         # and we're not already in the process of terminating
