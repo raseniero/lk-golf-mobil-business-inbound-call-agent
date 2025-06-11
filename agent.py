@@ -338,11 +338,17 @@ class SimpleAgent(Agent):
     async def _handle_termination_phrase(self, phrase: str) -> None:
         """Handle the detection of a termination phrase.
         
+        This method provides immediate acknowledgment of the termination request
+        before proceeding with the actual call termination.
+        
         Args:
             phrase: The termination phrase that was detected.
         """
         try:
             self._log_call_event("TERMINATION_INITIATED", {"phrase": phrase})
+            
+            # Provide immediate acknowledgment response
+            await self._send_immediate_termination_response(phrase)
             
             # Call the termination handler
             await self.terminate_call()
@@ -350,12 +356,87 @@ class SimpleAgent(Agent):
         except Exception as e:
             self._log_call_error("Error during call termination", e, {"phrase": phrase})
             # Don't re-raise to allow normal processing to continue if termination fails
+    
+    async def _send_immediate_termination_response(self, detected_phrase: str) -> None:
+        """Send an immediate contextual response to a termination phrase.
+        
+        This method generates and sends a quick acknowledgment message based on
+        the specific termination phrase that was detected, providing immediate
+        feedback to the user that their request was understood.
+        
+        Args:
+            detected_phrase: The specific termination phrase that was detected.
+        """
+        if not self._agent_session:
+            logger.debug("No active session for immediate response")
+            return
+            
+        try:
+            # Generate contextual response based on the detected phrase
+            response = self._generate_contextual_response(detected_phrase)
+            
+            # Send immediate response using the session's say method
+            await self._agent_session.say(response)
+            logger.debug(f"Sent immediate termination response: '{response}'")
+            
+        except Exception as e:
+            logger.warning(f"Error sending immediate termination response: {e}")
+            # Don't let response errors block termination
+    
+    def _generate_contextual_response(self, detected_phrase: str) -> str:
+        """Generate a contextual response based on the detected termination phrase.
+        
+        Args:
+            detected_phrase: The termination phrase that was detected.
+            
+        Returns:
+            A contextual response string.
+        """
+        phrase_lower = detected_phrase.lower()
+        
+        # Map termination phrases to appropriate responses
+        response_map = {
+            "goodbye": "Goodbye! It was nice talking with you.",
+            "bye": "Bye! Take care.",
+            "thank you": "You're welcome! Have a great day.",
+            "end call": "Ending the call now. Goodbye!",
+            "that's all": "Understood. Thank you for the conversation!"
+        }
+        
+        # Look for exact match first
+        if phrase_lower in response_map:
+            return response_map[phrase_lower]
+        
+        # Look for partial matches
+        for phrase, response in response_map.items():
+            if phrase in phrase_lower:
+                return response
+        
+        # Default response if no specific match found
+        return "Thank you! Goodbye."
             
     async def terminate_call(self) -> None:
-        """Handle call termination.
+        """Public interface for call termination.
         
-        This method performs the necessary cleanup and state transitions
-        when a call is terminated by the user.
+        This method handles user-initiated call termination with proper
+        error handling and logging.
+        """
+        try:
+            await self._terminate_call()
+        except Exception as e:
+            logger.error(f"Error during call termination: {e}", exc_info=True)
+            # Don't re-raise to allow graceful degradation
+    
+    async def _terminate_call(self) -> None:
+        """Core internal call termination logic.
+        
+        This method performs the actual cleanup and state transitions
+        when a call is terminated. It handles:
+        - State validation and transitions
+        - Call session timing
+        - Resource cleanup
+        - Room disconnection
+        - Error recovery
         """
         if self._call_state == CallState.ENDED:
             self._log_call_debug("Call already ended, ignoring termination request")
@@ -367,14 +448,18 @@ class SimpleAgent(Agent):
         await self._set_call_state(CallState.TERMINATING)
         
         try:
-            # End the call session
+            # End the call session timing
             self.call_session.end_call()
             
             # Log call duration if available
             duration = self.call_session.get_duration()
             if duration is not None:
                 self._call_metadata["duration"] = duration
-                self._log_call_event("CALL_DURATION", {"duration": duration})
+
+                logger.info(f"Call duration: {duration:.2f} seconds")
+            
+            # Disconnect from LiveKit room if connected
+            await self._disconnect_from_room()
                 
             # Clean up call resources
             self._cleanup_call_resources()
@@ -384,9 +469,61 @@ class SimpleAgent(Agent):
             self._log_call_event("CALL_TERMINATED", {"status": "success"})
             
         except Exception as e:
-            self._log_call_error("Error during call termination", e)
+
+            logger.error(f"Error during call termination cleanup: {e}", exc_info=True)
+            
             await self._set_call_state(CallState.ERROR, error=str(e))
+            # Still try to clean up resources
+            try:
+                self._cleanup_call_resources()
+            except Exception as cleanup_error:
+                logger.error(f"Error during emergency cleanup: {cleanup_error}")
             raise
+    
+    async def _disconnect_from_room(self) -> None:
+        """Enhanced room disconnection logic with timeout and error handling.
+        
+        This method handles:
+        - Checking room connection status
+        - Graceful disconnection with timeout
+        - Participant cleanup notification
+        - Error recovery and logging
+        """
+        if not hasattr(self, 'room') or not self.room:
+            logger.debug("No room to disconnect from")
+            return
+            
+        try:
+            # Log participants before disconnection
+            if hasattr(self.room, 'remote_participants'):
+                participant_count = len(self.room.remote_participants)
+                if participant_count > 0:
+                    logger.info(f"Disconnecting from room with {participant_count} other participants")
+                else:
+                    logger.info("Disconnecting from room (no other participants)")
+            
+            # Attempt graceful disconnection with timeout
+            try:
+                # Set a reasonable timeout for disconnection (5 seconds)
+                await asyncio.wait_for(self.room.disconnect(), timeout=5.0)
+                logger.info("Successfully disconnected from LiveKit room")
+            except asyncio.TimeoutError:
+                logger.warning("Room disconnection timed out after 5 seconds")
+                # Continue with cleanup - don't block termination
+            except Exception as disconnect_error:
+                logger.warning(f"Error during room disconnect: {disconnect_error}")
+                # Continue with cleanup - disconnection failures shouldn't stop termination
+                
+        except Exception as e:
+            logger.error(f"Unexpected error in room disconnection: {e}", exc_info=True)
+            # Continue with cleanup even if disconnect fails completely
+        finally:
+            # Clear room reference regardless of disconnect success
+            try:
+                self.room = None
+                logger.debug("Cleared room reference")
+            except Exception as clear_error:
+                logger.error(f"Error clearing room reference: {clear_error}")
 
 
 async def setup_room_handlers(room: rtc.Room, agent: SimpleAgent):
