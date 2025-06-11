@@ -8,6 +8,7 @@
 - `prompts/basic_prompt.md` - Contains agent instructions that might need updates
 - `tests/test_call_termination.py` - Test call duration tracking
 - `tests/test_termination_flow.py` - Test stubs for termination flow (non-matching input test currently skipped)
+- `tests/test_phrase_detection.py` - Test suite for phrase detection utility function
 
 ## Tasks
 
@@ -62,9 +63,9 @@
   - [x] Assign PR to `raseniero`
 - [x] 1.5 Add test stubs for new functionality *(non-matching input test currently skipped for performance)*
   ### Before Starting
-  - [ ] Ensure you're on the latest `main` branch
-  - [ ] Create a new branch: `feature/test-stubs`
-  - [ ] Set up Python virtual environment if not already active
+  - [x] Ensure you're on the latest `main` branch
+  - [x] Create a new branch: `feature/test-stubs`
+  - [x] Set up Python virtual environment if not already active
 
   ### Implementation Steps
   1. **Create Test File Structure**
@@ -98,13 +99,13 @@
   - [x] Document any test dependencies
 
   ### After Implementation
-  - [ ] Run all tests: `python -m pytest -v`
-  - [ ] Commit changes with message: "test: Add stubs for termination flow tests"
-  - [ ] Push branch and create PR to `main`
-  - [ ] Assign PR to `raseniero`
+  - [x] Run all tests: `python -m pytest -v`
+  - [x] Commit changes with message: "test: Add stubs for termination flow tests"
+  - [x] Push branch and create PR to `main`
+  - [x] Assign PR to `raseniero`
 
 ### 2.0 Implement Termination Phrase Detection
-- [ ] 2.1 Create phrase detection utility function
+- [x] 2.1 Create phrase detection utility function
 - [ ] 2.2 Add case-insensitive phrase matching
 - [ ] 2.3 Handle partial matches in user input
 - [ ] 2.4 Add tests for phrase detection
