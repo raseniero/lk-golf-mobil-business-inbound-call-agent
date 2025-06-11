@@ -33,7 +33,7 @@ When working with task lists, the AI must:
 5. Before starting work, check which sub‑task is next.
 6. After implementing a sub‑task, update the file and then pause for user approval.
 
-## Making Code Changes Instructions
+## Making Code Changes
 
 This is a set of instructions to the AI Assistant for making code changes. The goal is to write code that is modular and testable.
 
@@ -50,4 +50,3 @@ This is a set of instructions to the AI Assistant for making code changes. The g
 3.2. Push changes to Github.com
 3.3. Create a PR from the newly create branch to the `main` branch
 3.4. Assign the new PR to `raseniero`
-3.5. Add 'GitHub Copilot' as a reviewer
