@@ -12,6 +12,9 @@ def detect_termination_phrase(text: str, termination_phrases: Set[str]) -> Optio
     within sentences, including phrases followed by punctuation. It uses word
     boundary detection to avoid false positives from partial word matches.
     
+    For multi-word phrases, it allows extra words between the key terms while
+    maintaining word order (e.g., "end call" matches "end the call" but not "call end").
+    
     Args:
         text: The input text to search for termination phrases.
               Can be None or empty string.
@@ -26,7 +29,7 @@ def detect_termination_phrase(text: str, termination_phrases: Set[str]) -> Optio
         >>> phrases = {"goodbye", "end call", "bye"}
         >>> detect_termination_phrase("Goodbye everyone", phrases)
         'goodbye'
-        >>> detect_termination_phrase("Please end call now", phrases)
+        >>> detect_termination_phrase("Please end the call", phrases)
         'end call'
         >>> detect_termination_phrase("hello there", phrases)
         None
@@ -34,14 +37,27 @@ def detect_termination_phrase(text: str, termination_phrases: Set[str]) -> Optio
     if not text or not text.strip() or not termination_phrases:
         return None
     
-    # Compile a regex pattern for all termination phrases
-    pattern = re.compile(r'\b(?:' + '|'.join(re.escape(phrase) for phrase in termination_phrases) + r')\b', re.IGNORECASE)
+    text_lower = text.lower()
     
-    # Search for a match in the input text
-    match = pattern.search(text)
-    if match:
-        # Return the matched phrase in its original case
-        return next((phrase for phrase in termination_phrases if phrase.lower() == match.group(0).lower()), None)
+    # Check each termination phrase
+    for phrase in termination_phrases:
+        phrase_lower = phrase.lower()
+        words = phrase_lower.split()
+        
+        if len(words) == 1:
+            # Single word - use exact word boundary matching
+            pattern = re.compile(r'\b' + re.escape(phrase_lower) + r'\b')
+            if pattern.search(text_lower):
+                return phrase
+        else:
+            # Multi-word phrase - allow extra words between terms but maintain order
+            # Create a flexible pattern: word1 (any characters) word2 (any characters) word3...
+            escaped_words = [re.escape(word) for word in words]
+            # Use word boundaries and non-greedy matching
+            flexible_pattern = r'\b' + r'\b.*?\b'.join(escaped_words) + r'\b'
+            pattern = re.compile(flexible_pattern)
+            if pattern.search(text_lower):
+                return phrase
     
     return None
 
