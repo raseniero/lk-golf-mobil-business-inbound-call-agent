@@ -16,6 +16,7 @@
 - `tests/test_logging_format.py` - Test suite for standardized logging format (10 tests)
 - `tests/test_call_duration_calculation.py` - Test suite for enhanced call duration calculation (19 tests)
 - `tests/test_phrase_detection_logging.py` - Test suite for phrase detection logging functionality (10 tests)
+- `tests/test_log_level_configuration.py` - Test suite for environment-based log level configuration (16 tests)
 
 ## Tasks
 
@@ -125,12 +126,12 @@
 - [x] 3.4 Add "Goodbye" response before termination
 - [x] 3.5 Add tests for call termination flow
 
-### 4.0 Implement Logging System
+### 4.0 Implement Logging System ✅
 - [x] 4.1 Define log message format for call termination
 - [x] 4.2 Add call start/end timestamp logging
 - [x] 4.3 Log detected termination phrases
 - [x] 4.4 Add call duration calculation
-- [ ] 4.5 Configure log levels appropriately
+- [x] 4.5 Configure log levels appropriately
 
 ### 5.0 Add Error Handling and Recovery
 - [ ] 5.1 Implement error handling for termination process

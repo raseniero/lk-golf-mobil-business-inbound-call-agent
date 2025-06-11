@@ -111,14 +111,14 @@ class TestCallStateManagement:
         agent.call_session.start_call()
         await agent._set_call_state(CallState.ACTIVE)
         initial_time = agent.call_session.start_time
-        
+
         # Try to set the same state again
         await agent._set_call_state(CallState.ACTIVE)
-        
+
         # Should not change the state or call session start time
         assert agent.call_state == CallState.ACTIVE
         assert agent.call_session.start_time == initial_time
-    
+
     @pytest.mark.asyncio
     async def test_metadata_persistence(self, agent):
         """Test that metadata is properly stored and persisted."""
