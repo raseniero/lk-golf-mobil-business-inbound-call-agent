@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import time
+from datetime import datetime
 from enum import Enum, auto
 from typing import Optional, Dict, Any, Set, Iterable
 from dotenv import load_dotenv
@@ -87,6 +88,97 @@ class SimpleAgent(Agent):
             vad=silero.VAD.load(),
         )
 
+    def _format_log_message(self, event: str, metadata: Dict[str, Any] = None) -> str:
+        """Format a standardized log message for call events.
+        
+        Args:
+            event: The event type (e.g., 'CALL_START', 'PHRASE_DETECTED')
+            metadata: Optional metadata dictionary to include in the log
+            
+        Returns:
+            Formatted log message string with consistent structure
+        """
+        if metadata is None:
+            metadata = {}
+        
+        # Create base log structure
+        log_data = {
+            "event": event,
+            "timestamp": datetime.now().isoformat(),
+            "state": self._call_state.name,
+            "call_id": getattr(self, '_call_id', None),
+        }
+        
+        # Add call session data if available
+        if hasattr(self, 'call_session') and self.call_session:
+            if self.call_session.start_time:
+                log_data["call_start"] = datetime.fromtimestamp(self.call_session.start_time).isoformat()
+            duration = self.call_session.get_duration()
+            if duration is not None:
+                log_data["duration"] = round(duration, 3)
+        
+        # Add any additional metadata
+        log_data.update(metadata)
+        
+        # Create readable log message
+        base_msg = f"[{event}] state={self._call_state.name}"
+        
+        # Add key metadata to the readable part
+        if "duration" in log_data:
+            base_msg += f" duration={log_data['duration']}s"
+        if "phrase" in metadata:
+            base_msg += f" phrase='{metadata['phrase']}'"
+        if "error" in metadata:
+            base_msg += f" error='{metadata['error']}'"
+        
+        # Add structured data as JSON for parsing
+        base_msg += f" | {json.dumps(log_data, separators=(',', ':'))}"
+        
+        return base_msg
+
+    def _log_call_event(self, event: str, metadata: Dict[str, Any] = None):
+        """Log a call event with standardized format.
+        
+        Args:
+            event: The event type to log
+            metadata: Optional metadata to include
+        """
+        message = self._format_log_message(event, metadata)
+        logger.info(message)
+
+    def _log_call_error(self, error_message: str, exception: Exception = None, metadata: Dict[str, Any] = None):
+        """Log a call error with standardized format.
+        
+        Args:
+            error_message: Human-readable error description
+            exception: Optional exception object
+            metadata: Optional additional metadata
+        """
+        if metadata is None:
+            metadata = {}
+        
+        metadata["error"] = error_message
+        if exception:
+            metadata["exception_type"] = type(exception).__name__
+            metadata["exception_message"] = str(exception)
+        
+        message = self._format_log_message("ERROR", metadata)
+        logger.error(message, exc_info=exception is not None)
+
+    def _log_call_debug(self, debug_message: str, metadata: Dict[str, Any] = None):
+        """Log debug information with standardized format.
+        
+        Args:
+            debug_message: Debug message to log
+            metadata: Optional additional metadata
+        """
+        if metadata is None:
+            metadata = {}
+        
+        metadata["debug_message"] = debug_message
+        message = self._format_log_message("DEBUG", metadata)
+        logger.debug(message)
+
     async def on_enter(self):
         """Called when the agent enters a call."""
         await self._set_call_state(CallState.RINGING)
@@ -94,6 +186,11 @@ class SimpleAgent(Agent):
         try:
             self.call_session.start_call()
             self._agent_session = self.session  # Store the session from parent class
+
+            # Log call start event
+            self._log_call_event("CALL_START", {
+                "start_time": datetime.fromtimestamp(self.call_session.start_time).isoformat()
+            })
 
             # Set initial states
             self.is_speaking = False
@@ -109,7 +206,7 @@ class SimpleAgent(Agent):
             return True
 
         except Exception as e:
-            logger.error(f"Error during call setup: {e}", exc_info=True)
+            self._log_call_error("Error during call setup", e)
             await self._set_call_state(CallState.ERROR, error=str(e))
             raise  # Re-raise the exception to fail the operation
 
@@ -212,29 +309,31 @@ class SimpleAgent(Agent):
             # Skip empty or whitespace-only input
             return
             
-        logger.debug(f"Processing input: '{text}'")
+        self._log_call_debug("Processing user input", {"input_text": text})
         
         # Use the utility function to detect termination phrases
         detected_phrase = detect_termination_phrase(text, self.termination_phrases)
         
         if detected_phrase:
-            logger.debug(f"Termination phrase detected: '{detected_phrase}' in input: '{text}'")
+            self._log_call_event("PHRASE_DETECTED", {
+                "phrase": detected_phrase,
+                "input_text": text
+            })
             await self._handle_termination_phrase(detected_phrase)
             return
         
-        logger.debug(f"No termination phrase found in '{text}'")
+        self._log_call_debug("No termination phrase found", {"input_text": text})
         
         # For non-matching input, always call generate_reply if we have a session
         # and we're not already in the process of terminating
         if self._agent_session and self._call_state != CallState.TERMINATING:
             try:
-                # Log that we're generating a reply for non-matching input
-                logger.debug(f"No termination phrase detected, generating reply for input: {text}")
+                self._log_call_debug("Generating reply for normal input", {"input_text": text})
                 await self._agent_session.generate_reply()
             except Exception as e:
-                logger.error(f"Error generating reply: {e}", exc_info=True)
+                self._log_call_error("Error generating reply", e, {"input_text": text})
         else:
-            logger.debug("Skipping generate_reply - no active session or call is terminating")
+            self._log_call_debug("Skipping generate_reply - no active session or call is terminating")
                 
     async def _handle_termination_phrase(self, phrase: str) -> None:
         """Handle the detection of a termination phrase.
@@ -243,14 +342,13 @@ class SimpleAgent(Agent):
             phrase: The termination phrase that was detected.
         """
         try:
-            # Log the termination attempt
-            logger.info(f"Termination phrase detected: '{phrase}' in input")
+            self._log_call_event("TERMINATION_INITIATED", {"phrase": phrase})
             
             # Call the termination handler
             await self.terminate_call()
             
         except Exception as e:
-            logger.error(f"Error during call termination: {e}", exc_info=True)
+            self._log_call_error("Error during call termination", e, {"phrase": phrase})
             # Don't re-raise to allow normal processing to continue if termination fails
             
     async def terminate_call(self) -> None:
@@ -260,10 +358,10 @@ class SimpleAgent(Agent):
         when a call is terminated by the user.
         """
         if self._call_state == CallState.ENDED:
-            logger.warning("Call already ended, ignoring termination request")
+            self._log_call_debug("Call already ended, ignoring termination request")
             return
             
-        logger.info("Initiating call termination...")
+        self._log_call_event("CALL_TERMINATION", {"action": "initiating"})
         
         # Set call state to TERMINATING
         await self._set_call_state(CallState.TERMINATING)
@@ -276,17 +374,17 @@ class SimpleAgent(Agent):
             duration = self.call_session.get_duration()
             if duration is not None:
                 self._call_metadata["duration"] = duration
-                logger.info(f"Call duration: {duration:.2f} seconds")
+                self._log_call_event("CALL_DURATION", {"duration": duration})
                 
             # Clean up call resources
             self._cleanup_call_resources()
             
             # Set final call state
             await self._set_call_state(CallState.ENDED)
-            logger.info("Call terminated successfully")
+            self._log_call_event("CALL_TERMINATED", {"status": "success"})
             
         except Exception as e:
-            logger.error(f"Error during call termination: {e}", exc_info=True)
+            self._log_call_error("Error during call termination", e)
             await self._set_call_state(CallState.ERROR, error=str(e))
             raise
 

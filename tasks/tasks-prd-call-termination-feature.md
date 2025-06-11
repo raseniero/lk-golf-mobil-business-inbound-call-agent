@@ -2,13 +2,16 @@
 
 ## Relevant Files
 
-- `agent.py` - Main agent implementation where call termination logic will be added
-- `utils.py` - Contains utility functions that might need updates
+- `agent.py` - Main agent implementation with call termination logic and standardized logging
+- `utils.py` - Contains phrase detection utility functions with performance optimization
 - `requirements.txt` - May need updates if new dependencies are required
 - `prompts/basic_prompt.md` - Contains agent instructions that might need updates
 - `tests/test_call_termination.py` - Test call duration tracking
 - `tests/test_termination_flow.py` - Test stubs for termination flow (non-matching input test currently skipped)
 - `tests/test_phrase_detection.py` - Test suite for phrase detection utility function
+- `tests/test_phrase_detection_performance.py` - Performance tests for optimized phrase detection
+- `tests/test_call_termination_logic.py` - Comprehensive test suite for call termination logic (27 tests)
+- `tests/test_logging_format.py` - Test suite for standardized logging format (10 tests)
 
 ## Tasks
 
@@ -119,7 +122,7 @@
 - [ ] 3.5 Add tests for call termination flow
 
 ### 4.0 Implement Logging System
-- [ ] 4.1 Define log message format for call termination
+- [x] 4.1 Define log message format for call termination
 - [ ] 4.2 Add call start/end timestamp logging
 - [ ] 4.3 Log detected termination phrases
 - [ ] 4.4 Add call duration calculation
