@@ -32,6 +32,8 @@ The agent follows a simple pattern:
 - CallSession class tracks call timing with start_call(), end_call(), get_duration() methods  
 - SimpleAgent manages state transitions with `_set_call_state()` and proper error handling
 - All state changes are logged with metadata persistence
+- Automatic termination phrase detection triggers state transitions
+- Configurable termination phrases (default: "goodbye", "bye", "thank you", "end call", "that's all")
 
 **Error Handling and Recovery:**
 - Comprehensive error handling in call termination with fallback mechanisms
@@ -41,6 +43,8 @@ The agent follows a simple pattern:
 - Timeout protection for room disconnection operations (5-second timeout)
 - Structured error logging with stack traces for debugging
 - Fallback room cleanup when graceful disconnection fails
+- Three-tier cleanup system: _cleanup_call_resources(), _force_room_cleanup(), _emergency_resource_cleanup()
+- Catastrophic failure handler as last resort with _catastrophic_failure_cleanup()
 
 **Implementation Details:**
 - The SimpleAgent initializes with all services in constructor (STT, LLM, TTS, VAD)
@@ -48,6 +52,9 @@ The agent follows a simple pattern:
 - The agent automatically generates a reply on session enter via `on_enter()`
 - Uses LiveKit's JobContext pattern with `entrypoint()` function
 - All ML model downloads and setup happen through Task commands
+- Phrase detection uses optimized regex patterns with caching for performance
+- Call termination includes immediate "Goodbye!" response before cleanup
+- Comprehensive event logging with structured JSON format for analytics
 
 ## Development Commands
 
@@ -83,7 +90,21 @@ npm install    # Install Node.js tooling dependencies
 
 # Run tests with coverage
 .venv/bin/python -m pytest tests/ --cov=. --cov-report=html
+
+# Run performance tests
+.venv/bin/python -m pytest tests/test_performance_*.py -v
+
+# Run integration tests
+.venv/bin/python -m pytest tests/test_integration_*.py -v
 ```
+
+**Test Coverage:**
+- 20+ test files with 150+ test cases
+- Unit tests for all core functions
+- Integration tests for complete call flows
+- Performance tests for concurrent calls and stress scenarios
+- Error handling validation tests
+- Comprehensive edge case coverage
 
 ### Code Formatting
 ```bash
