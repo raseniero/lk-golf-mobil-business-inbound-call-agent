@@ -6,7 +6,6 @@ import time
 from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Optional, Dict, Any, Set, Iterable
-import traceback
 from dotenv import load_dotenv
 from livekit.agents import JobContext, WorkerOptions, cli
 import livekit.rtc as rtc
