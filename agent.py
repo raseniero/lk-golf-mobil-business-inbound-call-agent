@@ -28,24 +28,143 @@ class CallState(Enum):
 
 
 class CallSession:
-    """Encapsulates call timing logic for duration tracking."""
+    """Encapsulates call timing logic for duration tracking with enhanced calculations."""
 
     def __init__(self):
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None
 
     def start_call(self):
+        """Start tracking call duration."""
         self.start_time = time.time()
         self.end_time = None
 
     def end_call(self):
+        """End call duration tracking."""
         if self.start_time is not None:
             self.end_time = time.time()
 
+    def reset(self):
+        """Reset the call session for reuse."""
+        self.start_time = None
+        self.end_time = None
+
     def get_duration(self) -> Optional[float]:
+        """Get call duration in seconds.
+        
+        Returns:
+            Duration in seconds as float, or None if start/end times are not available.
+        """
         if self.start_time is not None and self.end_time is not None:
             return self.end_time - self.start_time
         return None
+
+    def get_duration_minutes(self) -> Optional[float]:
+        """Get call duration in minutes.
+        
+        Returns:
+            Duration in minutes as float, or None if duration is not available.
+        """
+        duration = self.get_duration()
+        if duration is not None:
+            return duration / 60.0
+        return None
+
+    def get_duration_formatted(self) -> str:
+        """Get human-readable formatted duration string.
+        
+        Returns:
+            Formatted duration string like "2 minutes 30 seconds" or "unknown".
+        """
+        duration = self.get_duration()
+        if duration is None:
+            return "unknown"
+        
+        if duration < 0:
+            return "invalid duration"
+        
+        # Convert to total seconds
+        total_seconds = int(duration)
+        
+        # Calculate hours, minutes, seconds
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        
+        # Handle fractional seconds for short durations
+        if duration < 60:
+            return f"{duration:.1f} seconds"
+        
+        # Build formatted string
+        parts = []
+        if hours > 0:
+            parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+        if minutes > 0:
+            parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+        if seconds > 0 or not parts:  # Always show seconds if no other parts
+            parts.append(f"{seconds} second{'s' if seconds != 1 else ''}")
+        
+        return " ".join(parts)
+
+    def is_short_call(self) -> bool:
+        """Check if this is a short call (< 30 seconds).
+        
+        Returns:
+            True if call duration is less than 30 seconds, False otherwise.
+        """
+        duration = self.get_duration()
+        return duration is not None and duration < 30.0
+
+    def is_medium_call(self) -> bool:
+        """Check if this is a medium call (30 seconds - 5 minutes).
+        
+        Returns:
+            True if call duration is between 30 seconds and 5 minutes, False otherwise.
+        """
+        duration = self.get_duration()
+        return duration is not None and 30.0 <= duration < 300.0
+
+    def is_long_call(self) -> bool:
+        """Check if this is a long call (>= 5 minutes).
+        
+        Returns:
+            True if call duration is 5 minutes or more, False otherwise.
+        """
+        duration = self.get_duration()
+        return duration is not None and duration >= 300.0
+
+    def get_call_classification(self) -> str:
+        """Get the classification of the call based on duration.
+        
+        Returns:
+            Classification string: 'short', 'medium', 'long', or 'unknown'.
+        """
+        if self.is_short_call():
+            return 'short'
+        elif self.is_medium_call():
+            return 'medium'
+        elif self.is_long_call():
+            return 'long'
+        else:
+            return 'unknown'
+
+    def get_duration_export_data(self) -> Dict[str, Any]:
+        """Get comprehensive duration data for export/analytics.
+        
+        Returns:
+            Dictionary containing all duration metrics and metadata.
+        """
+        duration = self.get_duration()
+        duration_minutes = self.get_duration_minutes()
+        
+        return {
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+            'duration_seconds': duration,
+            'duration_minutes': duration_minutes,
+            'duration_formatted': self.get_duration_formatted(),
+            'call_classification': self.get_call_classification()
+        }
 
 
 load_dotenv()
@@ -128,6 +247,36 @@ class SimpleAgent(Agent):
         logger.info(
             f"Call lifecycle summary: started at {start_timestamp}, "
             f"ended at {end_timestamp}, duration: {duration_str}"
+        )
+
+    def _log_call_duration_summary(self):
+        """Log comprehensive call duration summary with enhanced formatting and analytics.
+        
+        This method logs detailed duration information including:
+        - Raw duration in seconds
+        - Human-readable formatted duration
+        - Call classification (short/medium/long)
+        - Duration statistics for analytics
+        """
+        duration_data = self.call_session.get_duration_export_data()
+        
+        if duration_data['duration_seconds'] is None:
+            logger.warning("Cannot log duration summary: no valid duration data")
+            return
+        
+        # Log structured duration information
+        self._log_call_event("CALL_DURATION_SUMMARY", {
+            "duration_seconds": f"{duration_data['duration_seconds']:.3f}",
+            "duration_formatted": duration_data['duration_formatted'],
+            "call_classification": duration_data['call_classification'],
+            "duration_minutes": f"{duration_data['duration_minutes']:.2f}" if duration_data['duration_minutes'] else "unknown"
+        })
+        
+        # Log human-readable summary
+        logger.info(
+            f"Call duration summary: {duration_data['duration_formatted']} "
+            f"({duration_data['duration_seconds']:.3f} seconds) - "
+            f"classified as {duration_data['call_classification']} call"
         )
 
     def _log_call_event(self, event_type: str, data: Dict[str, Any]):
@@ -464,14 +613,15 @@ class SimpleAgent(Agent):
             # Log call end with timestamp
             self._log_call_end_timestamp()
             
-            # Log call duration if available
+            # Log enhanced call duration summary
             duration = self.call_session.get_duration()
             if duration is not None:
                 self._call_metadata["duration"] = duration
                 
-                # Log structured call duration event
-                self._log_call_event("CALL_DURATION", {"duration": f"{duration:.2f} seconds"})
-                logger.info(f"Call duration: {duration:.2f} seconds")
+                # Use enhanced duration logging
+                self._log_call_duration_summary()
+            else:
+                logger.warning("No duration data available for call termination logging")
             
             # Log comprehensive call lifecycle summary
             self._log_call_lifecycle_summary()

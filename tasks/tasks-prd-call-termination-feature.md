@@ -14,6 +14,7 @@
 - `tests/test_phrase_detection_performance.py` - Performance tests for optimized phrase detection
 - `tests/test_call_termination_logic.py` - Comprehensive test suite for call termination logic (27 tests)
 - `tests/test_logging_format.py` - Test suite for standardized logging format (10 tests)
+- `tests/test_call_duration_calculation.py` - Test suite for enhanced call duration calculation (19 tests)
 - `tests/test_phrase_detection_logging.py` - Test suite for phrase detection logging functionality (10 tests)
 
 ## Tasks
@@ -128,7 +129,7 @@
 - [x] 4.2 Add call start/end timestamp logging
 - [x] 4.2 Add call start/end timestamp logging
 - [x] 4.3 Log detected termination phrases
-- [ ] 4.4 Add call duration calculation
+- [x] 4.4 Add call duration calculation
 - [ ] 4.5 Configure log levels appropriately
 
 ### 5.0 Add Error Handling and Recovery
