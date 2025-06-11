@@ -33,51 +33,14 @@ def detect_termination_phrase(text: str, termination_phrases: Set[str]) -> Optio
     if not text or not text.strip() or not termination_phrases:
         return None
     
-    # Normalize the input for case-insensitive matching
-    normalized_input = text.lower().strip()
+    # Compile a regex pattern for all termination phrases
+    pattern = re.compile(r'\b(?:' + '|'.join(re.escape(phrase) for phrase in termination_phrases) + r')\b', re.IGNORECASE)
     
-    # Split the input into words for more precise matching
-    words = normalized_input.split()
-    
-    # Check each termination phrase
-    for phrase in termination_phrases:
-        # Normalize the phrase for matching
-        normalized_phrase = phrase.lower()
-        
-        # Check for exact match first
-        if normalized_input == normalized_phrase:
-            return phrase
-            
-        # Check if the phrase is a complete word in the input
-        if normalized_phrase in words:
-            return phrase
-        
-        # Check for phrase at the start of the input with word boundary
-        if normalized_input.startswith(normalized_phrase):
-            # Check if it's followed by a non-word character or end of string
-            next_char_pos = len(normalized_phrase)
-            if next_char_pos >= len(normalized_input):
-                return phrase
-            elif not normalized_input[next_char_pos].isalnum():
-                return phrase
-        
-        # Check for phrase at the end of the input with word boundary
-        if normalized_input.endswith(normalized_phrase):
-            # Check if it's preceded by a non-word character or start of string
-            prev_char_pos = len(normalized_input) - len(normalized_phrase) - 1
-            if prev_char_pos < 0:
-                return phrase
-            elif not normalized_input[prev_char_pos].isalnum():
-                return phrase
-        
-        # Check for phrase in the middle of the input with word boundaries
-        if f' {normalized_phrase} ' in f' {normalized_input} ':
-            return phrase
-            
-        # Check for phrase followed by punctuation
-        for punct in ['.', ',', '!', '?']:
-            if f' {normalized_phrase}{punct}' in f' {normalized_input} ':
-                return phrase
+    # Search for a match in the input text
+    match = pattern.search(text)
+    if match:
+        # Return the matched phrase in its original case
+        return next((phrase for phrase in termination_phrases if phrase.lower() == match.group(0).lower()), None)
     
     return None
 
