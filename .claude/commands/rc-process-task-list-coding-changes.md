@@ -33,7 +33,7 @@ When working with task lists, the AI must:
 5. Before starting work, check which sub‑task is next.
 6. After implementing a sub‑task, update the file and then pause for user approval.
 
-## Making Code Changes
+## Instructions for Making Code Changes
 
 This is a set of instructions to the AI Assistant for making code changes. The goal is to write code that is modular and testable.
 
