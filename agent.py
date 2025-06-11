@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import time
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Optional, Dict, Any, Set, Iterable
 from dotenv import load_dotenv
@@ -87,6 +88,47 @@ class SimpleAgent(Agent):
             vad=silero.VAD.load(),
         )
 
+    def get_formatted_timestamp(self) -> str:
+        """Get current timestamp in ISO 8601 format with timezone.
+        
+        Returns:
+            Timestamp string in ISO 8601 format with UTC timezone (e.g., '2025-06-11T14:30:45.123456Z')
+        """
+        return datetime.now(timezone.utc).isoformat()
+
+    def _log_call_start_timestamp(self):
+        """Log call start with formatted timestamp."""
+        timestamp = self.get_formatted_timestamp()
+        logger.info(f"Call started at {timestamp}")
+        return timestamp
+
+    def _log_call_end_timestamp(self):
+        """Log call end with formatted timestamp."""
+        timestamp = self.get_formatted_timestamp()
+        logger.info(f"Call ended at {timestamp}")
+        return timestamp
+
+    def _log_call_lifecycle_summary(self):
+        """Log a summary of the call lifecycle with start/end timestamps and duration."""
+        if not hasattr(self.call_session, 'start_time') or self.call_session.start_time is None:
+            logger.warning("Cannot log call lifecycle: no start time recorded")
+            return
+        
+        # Get start timestamp from stored time
+        start_timestamp = datetime.fromtimestamp(self.call_session.start_time, timezone.utc).isoformat()
+        
+        # Get end timestamp 
+        end_timestamp = self.get_formatted_timestamp()
+        
+        # Calculate duration
+        duration = self.call_session.get_duration()
+        duration_str = f"{duration:.3f} seconds" if duration is not None else "unknown"
+        
+        logger.info(
+            f"Call lifecycle summary: started at {start_timestamp}, "
+            f"ended at {end_timestamp}, duration: {duration_str}"
+        )
+
     async def on_enter(self):
         """Called when the agent enters a call."""
         await self._set_call_state(CallState.RINGING)
@@ -94,6 +136,9 @@ class SimpleAgent(Agent):
         try:
             self.call_session.start_call()
             self._agent_session = self.session  # Store the session from parent class
+
+            # Log call start with timestamp
+            self._log_call_start_timestamp()
 
             # Set initial states
             self.is_speaking = False
@@ -133,12 +178,19 @@ class SimpleAgent(Agent):
         try:
             # Log call duration if we have a start time
             self.call_session.end_call()
+            
+            # Log call end with timestamp
+            self._log_call_end_timestamp()
+            
             duration = self.call_session.get_duration()
             if duration is not None:
                 self._call_metadata["duration"] = duration
                 logger.info(f"Call ended. Duration: {duration:.2f} seconds")
             else:
                 logger.info("Call ended (no start or end time recorded)")
+
+            # Log comprehensive call lifecycle summary
+            self._log_call_lifecycle_summary()
 
             # Perform any cleanup
             self._cleanup_call_resources()
@@ -353,11 +405,17 @@ class SimpleAgent(Agent):
             # End the call session timing
             self.call_session.end_call()
             
+            # Log call end with timestamp
+            self._log_call_end_timestamp()
+            
             # Log call duration if available
             duration = self.call_session.get_duration()
             if duration is not None:
                 self._call_metadata["duration"] = duration
                 logger.info(f"Call duration: {duration:.2f} seconds")
+            
+            # Log comprehensive call lifecycle summary
+            self._log_call_lifecycle_summary()
             
             # Disconnect from LiveKit room if connected
             await self._disconnect_from_room()
