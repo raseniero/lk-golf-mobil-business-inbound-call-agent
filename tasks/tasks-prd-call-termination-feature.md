@@ -15,6 +15,7 @@
 - `tests/test_call_termination_logic.py` - Comprehensive test suite for call termination logic (27 tests)
 - `tests/test_logging_format.py` - Test suite for standardized logging format (10 tests)
 - `tests/test_call_duration_calculation.py` - Test suite for enhanced call duration calculation (19 tests)
+- `tests/test_phrase_detection_logging.py` - Test suite for phrase detection logging functionality (10 tests)
 
 ## Tasks
 
