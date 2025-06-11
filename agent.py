@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Optional, Dict, Any, Set, Iterable
+import traceback
 from dotenv import load_dotenv
 from livekit.agents import JobContext, WorkerOptions, cli
 import livekit.rtc as rtc
@@ -128,6 +129,60 @@ class SimpleAgent(Agent):
             f"Call lifecycle summary: started at {start_timestamp}, "
             f"ended at {end_timestamp}, duration: {duration_str}"
         )
+
+    def _log_call_event(self, event_type: str, data: Dict[str, Any]):
+        """Log call events with structured data.
+        
+        Args:
+            event_type: The type of event being logged (e.g., 'PHRASE_DETECTED', 'TERMINATION_INITIATED')
+            data: Dictionary containing event-specific data to be logged
+        """
+        timestamp = self.get_formatted_timestamp()
+        
+        # Create structured log message with expected fields
+        data_str = ", ".join([f"{k}='{v}'" for k, v in (data or {}).items()])
+        log_message = f"event={event_type}, timestamp={timestamp}, state={self._call_state.name}"
+        
+        if data_str:
+            log_message += f", {data_str}"
+            
+        logger.info(log_message)
+
+    def _log_call_debug(self, message: str, data: Optional[Dict[str, Any]] = None):
+        """Log debug information with optional structured data.
+        
+        Args:
+            message: The debug message to log
+            data: Optional dictionary containing additional debug data
+        """
+        timestamp = self.get_formatted_timestamp()
+        
+        log_message = f"[{timestamp}] CALL_DEBUG: {message}"
+        
+        if data:
+            data_str = ", ".join([f"{k}='{v}'" for k, v in data.items()])
+            log_message += f" | {data_str}"
+            
+        logger.debug(log_message)
+
+    def _log_call_error(self, message: str, error: Exception, data: Optional[Dict[str, Any]] = None):
+        """Log errors with structured data and exception info.
+        
+        Args:
+            message: The error message to log
+            error: The exception that occurred
+            data: Optional dictionary containing additional error context
+        """
+        timestamp = self.get_formatted_timestamp()
+        
+        log_message = f"[{timestamp}] CALL_ERROR: {message} | error='{str(error)}'"
+        
+        if data:
+            data_str = ", ".join([f"{k}='{v}'" for k, v in data.items()])
+            log_message += f" | {data_str}"
+            
+        # Log with full exception info
+        logger.error(log_message, exc_info=True)
 
     async def on_enter(self):
         """Called when the agent enters a call."""
@@ -413,7 +468,9 @@ class SimpleAgent(Agent):
             duration = self.call_session.get_duration()
             if duration is not None:
                 self._call_metadata["duration"] = duration
-
+                
+                # Log structured call duration event
+                self._log_call_event("CALL_DURATION", {"duration": f"{duration:.2f} seconds"})
                 logger.info(f"Call duration: {duration:.2f} seconds")
             
             # Log comprehensive call lifecycle summary
