@@ -104,19 +104,19 @@
   - [x] Push branch and create PR to `main`
   - [x] Assign PR to `raseniero`
 
-### 2.0 Implement Termination Phrase Detection
+### 2.0 Implement Termination Phrase Detection ✅
 - [x] 2.1 Create phrase detection utility function
 - [x] 2.2 Add case-insensitive phrase matching
 - [x] 2.3 Handle partial matches in user input
 - [x] 2.4 Add tests for phrase detection
-- [ ] 2.5 Optimize phrase lookup performance
+- [x] 2.5 Optimize phrase lookup performance
 
-### 3.0 Add Call Termination Logic
-- [ ] 3.1 Implement `_terminate_call` method
-- [ ] 3.2 Add call disconnection logic
-- [ ] 3.3 Implement immediate response to termination phrases
-- [ ] 3.4 Add "Goodbye" response before termination
-- [ ] 3.5 Add tests for call termination flow
+### 3.0 Add Call Termination Logic ✅
+- [x] 3.1 Implement `_terminate_call` method
+- [x] 3.2 Add call disconnection logic
+- [x] 3.3 Implement immediate response to termination phrases
+- [x] 3.4 Add "Goodbye" response before termination
+- [x] 3.5 Add tests for call termination flow
 
 ### 4.0 Implement Logging System
 - [ ] 4.1 Define log message format for call termination
