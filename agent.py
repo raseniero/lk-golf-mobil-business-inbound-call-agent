@@ -3,7 +3,7 @@ import json
 import logging
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Optional, Dict, Any, Set, Iterable
 from dotenv import load_dotenv
@@ -88,96 +88,46 @@ class SimpleAgent(Agent):
             vad=silero.VAD.load(),
         )
 
-    def _format_log_message(self, event: str, metadata: Dict[str, Any] = None) -> str:
-        """Format a standardized log message for call events.
+    def get_formatted_timestamp(self) -> str:
+        """Get current timestamp in ISO 8601 format with timezone.
         
-        Args:
-            event: The event type (e.g., 'CALL_START', 'PHRASE_DETECTED')
-            metadata: Optional metadata dictionary to include in the log
-            
         Returns:
-            Formatted log message string with consistent structure
+            Timestamp string in ISO 8601 format with UTC timezone (e.g., '2025-06-11T14:30:45.123456Z')
         """
-        if metadata is None:
-            metadata = {}
-        
-        # Create base log structure
-        log_data = {
-            "event": event,
-            "timestamp": datetime.now().isoformat(),
-            "state": self._call_state.name,
-            "call_id": getattr(self, '_call_id', None),
-        }
-        
-        # Add call session data if available
-        if hasattr(self, 'call_session') and self.call_session:
-            if self.call_session.start_time:
-                log_data["call_start"] = datetime.fromtimestamp(self.call_session.start_time).isoformat()
-            duration = self.call_session.get_duration()
-            if duration is not None:
-                log_data["duration"] = round(duration, 3)
-        
-        # Add any additional metadata
-        log_data.update(metadata)
-        
-        # Create readable log message
-        base_msg = f"[{event}] state={self._call_state.name}"
-        
-        # Add key metadata to the readable part
-        if "duration" in log_data:
-            base_msg += f" duration={log_data['duration']}s"
-        if "phrase" in metadata:
-            base_msg += f" phrase='{metadata['phrase']}'"
-        if "error" in metadata:
-            base_msg += f" error='{metadata['error']}'"
-        
-        # Add structured data as JSON for parsing
-        base_msg += f" | {json.dumps(log_data, separators=(',', ':'))}"
-        
-        return base_msg
+        return datetime.now(timezone.utc).isoformat()
 
-    def _log_call_event(self, event: str, metadata: Dict[str, Any] = None):
-        """Log a call event with standardized format.
-        
-        Args:
-            event: The event type to log
-            metadata: Optional metadata to include
-        """
-        message = self._format_log_message(event, metadata)
-        logger.info(message)
+    def _log_call_start_timestamp(self):
+        """Log call start with formatted timestamp."""
+        timestamp = self.get_formatted_timestamp()
+        logger.info(f"Call started at {timestamp}")
+        return timestamp
 
-    def _log_call_error(self, error_message: str, exception: Exception = None, metadata: Dict[str, Any] = None):
-        """Log a call error with standardized format.
-        
-        Args:
-            error_message: Human-readable error description
-            exception: Optional exception object
-            metadata: Optional additional metadata
-        """
-        if metadata is None:
-            metadata = {}
-        
-        metadata["error"] = error_message
-        if exception:
-            metadata["exception_type"] = type(exception).__name__
-            metadata["exception_message"] = str(exception)
-        
-        message = self._format_log_message("ERROR", metadata)
-        logger.error(message, exc_info=exception is not None)
+    def _log_call_end_timestamp(self):
+        """Log call end with formatted timestamp."""
+        timestamp = self.get_formatted_timestamp()
+        logger.info(f"Call ended at {timestamp}")
+        return timestamp
 
-    def _log_call_debug(self, debug_message: str, metadata: Dict[str, Any] = None):
-        """Log debug information with standardized format.
+    def _log_call_lifecycle_summary(self):
+        """Log a summary of the call lifecycle with start/end timestamps and duration."""
+        if not hasattr(self.call_session, 'start_time') or self.call_session.start_time is None:
+            logger.warning("Cannot log call lifecycle: no start time recorded")
+            return
         
-        Args:
-            debug_message: Debug message to log
-            metadata: Optional additional metadata
-        """
-        if metadata is None:
-            metadata = {}
+        # Get start timestamp from stored time
+        start_timestamp = datetime.fromtimestamp(self.call_session.start_time, timezone.utc).isoformat()
         
-        metadata["debug_message"] = debug_message
-        message = self._format_log_message("DEBUG", metadata)
-        logger.debug(message)
+        # Get end timestamp 
+        end_timestamp = self.get_formatted_timestamp()
+        
+        # Calculate duration
+        duration = self.call_session.get_duration()
+        duration_str = f"{duration:.3f} seconds" if duration is not None else "unknown"
+        
+        logger.info(
+            f"Call lifecycle summary: started at {start_timestamp}, "
+            f"ended at {end_timestamp}, duration: {duration_str}"
+        )
 
     async def on_enter(self):
         """Called when the agent enters a call."""
@@ -187,10 +137,8 @@ class SimpleAgent(Agent):
             self.call_session.start_call()
             self._agent_session = self.session  # Store the session from parent class
 
-            # Log call start event
-            self._log_call_event("CALL_START", {
-                "start_time": datetime.fromtimestamp(self.call_session.start_time).isoformat()
-            })
+            # Log call start with timestamp
+            self._log_call_start_timestamp()
 
             # Set initial states
             self.is_speaking = False
@@ -230,12 +178,19 @@ class SimpleAgent(Agent):
         try:
             # Log call duration if we have a start time
             self.call_session.end_call()
+            
+            # Log call end with timestamp
+            self._log_call_end_timestamp()
+            
             duration = self.call_session.get_duration()
             if duration is not None:
                 self._call_metadata["duration"] = duration
                 logger.info(f"Call ended. Duration: {duration:.2f} seconds")
             else:
                 logger.info("Call ended (no start or end time recorded)")
+
+            # Log comprehensive call lifecycle summary
+            self._log_call_lifecycle_summary()
 
             # Perform any cleanup
             self._cleanup_call_resources()
@@ -451,12 +406,18 @@ class SimpleAgent(Agent):
             # End the call session timing
             self.call_session.end_call()
             
+            # Log call end with timestamp
+            self._log_call_end_timestamp()
+            
             # Log call duration if available
             duration = self.call_session.get_duration()
             if duration is not None:
                 self._call_metadata["duration"] = duration
 
                 logger.info(f"Call duration: {duration:.2f} seconds")
+            
+            # Log comprehensive call lifecycle summary
+            self._log_call_lifecycle_summary()
             
             # Disconnect from LiveKit room if connected
             await self._disconnect_from_room()
