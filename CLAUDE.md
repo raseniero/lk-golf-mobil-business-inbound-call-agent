@@ -33,6 +33,15 @@ The agent follows a simple pattern:
 - SimpleAgent manages state transitions with `_set_call_state()` and proper error handling
 - All state changes are logged with metadata persistence
 
+**Error Handling and Recovery:**
+- Comprehensive error handling in call termination with fallback mechanisms
+- Graceful degradation: partial failures result in warnings while maintaining successful termination
+- Critical failures trigger ERROR state with detailed error context
+- Emergency cleanup procedures for catastrophic failures
+- Timeout protection for room disconnection operations (5-second timeout)
+- Structured error logging with stack traces for debugging
+- Fallback room cleanup when graceful disconnection fails
+
 **Implementation Details:**
 - The SimpleAgent initializes with all services in constructor (STT, LLM, TTS, VAD)
 - Agent instructions are loaded from `prompts/basic_prompt.md` via `load_prompt_markdown()` 

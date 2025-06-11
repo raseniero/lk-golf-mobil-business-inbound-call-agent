@@ -646,7 +646,7 @@ class SimpleAgent(Agent):
             # Don't re-raise to allow graceful degradation
 
     async def _terminate_call(self) -> None:
-        """Core internal call termination logic.
+        """Core internal call termination logic with comprehensive error handling.
 
         This method performs the actual cleanup and state transitions
         when a call is terminated. It handles:
@@ -654,7 +654,8 @@ class SimpleAgent(Agent):
         - Call session timing
         - Resource cleanup
         - Room disconnection
-        - Error recovery
+        - Error recovery and fallback mechanisms
+        - Timeout protection
         """
         if self._call_state == CallState.ENDED:
             logger.warning("Call already ended, ignoring termination request")
@@ -665,49 +666,143 @@ class SimpleAgent(Agent):
         # Set call state to TERMINATING
         await self._set_call_state(CallState.TERMINATING)
 
+        # Track individual operation failures for comprehensive error reporting
+        operation_errors = {}
+        critical_failure = False
+
         try:
-            # End the call session timing
-            self.call_session.end_call()
+            # Step 1: End the call session timing with error handling
+            try:
+                self.call_session.end_call()
+                self._log_call_event("TERMINATION_STEP", {"step": "session_ended", "status": "success"})
+            except Exception as session_error:
+                operation_errors["session_end"] = str(session_error)
+                self._log_call_error("Failed to end call session", session_error)
+                # Continue with termination despite session timing failure
 
-            # Log call end with timestamp
-            self._log_call_end_timestamp()
+            # Step 2: Log call end timestamp with error handling
+            try:
+                self._log_call_end_timestamp()
+                self._log_call_event("TERMINATION_STEP", {"step": "timestamp_logged", "status": "success"})
+            except Exception as timestamp_error:
+                operation_errors["timestamp_logging"] = str(timestamp_error)
+                logger.warning(f"Failed to log end timestamp: {timestamp_error}")
+                # Continue with termination despite logging failure
 
-            # Log enhanced call duration summary
-            duration = self.call_session.get_duration()
-            if duration is not None:
-                self._call_metadata["duration"] = duration
+            # Step 3: Enhanced call duration summary with error handling
+            try:
+                duration = self.call_session.get_duration()
+                if duration is not None:
+                    self._call_metadata["duration"] = duration
+                    self._log_call_duration_summary()
+                    self._log_call_event("TERMINATION_STEP", {"step": "duration_logged", "status": "success"})
+                else:
+                    logger.warning("No duration data available for call termination logging")
+                    self._log_call_event("TERMINATION_STEP", {"step": "duration_logged", "status": "no_data"})
+            except Exception as duration_error:
+                operation_errors["duration_logging"] = str(duration_error)
+                logger.warning(f"Failed to log call duration: {duration_error}")
+                # Continue with termination despite duration logging failure
 
-                # Use enhanced duration logging
-                self._log_call_duration_summary()
-            else:
-                logger.warning(
-                    "No duration data available for call termination logging"
-                )
+            # Step 4: Log comprehensive call lifecycle summary with error handling
+            try:
+                self._log_call_lifecycle_summary()
+                self._log_call_event("TERMINATION_STEP", {"step": "lifecycle_logged", "status": "success"})
+            except Exception as lifecycle_error:
+                operation_errors["lifecycle_logging"] = str(lifecycle_error)
+                logger.warning(f"Failed to log call lifecycle summary: {lifecycle_error}")
+                # Continue with termination despite lifecycle logging failure
 
-            # Log comprehensive call lifecycle summary
-            self._log_call_lifecycle_summary()
+            # Step 5: Disconnect from LiveKit room with enhanced error handling and timeout
+            try:
+                if hasattr(self, "room") and self.room:
+                    # Log participants before disconnection
+                    if hasattr(self.room, "remote_participants"):
+                        participant_count = len(self.room.remote_participants)
+                        if participant_count > 0:
+                            logger.info(f"Disconnecting from room with {participant_count} other participants")
+                        else:
+                            logger.info("Disconnecting from room (no other participants)")
+                    
+                    # Attempt graceful disconnection with timeout
+                    await asyncio.wait_for(self.room.disconnect(), timeout=5.0)
+                    logger.info("Successfully disconnected from LiveKit room")
+                    
+                    # Clear room reference
+                    self.room = None
+                    logger.debug("Cleared room reference")
+                else:
+                    logger.debug("No room to disconnect from")
+                
+                self._log_call_event("TERMINATION_STEP", {"step": "room_disconnected", "status": "success"})
+            except asyncio.TimeoutError:
+                operation_errors["room_disconnect"] = "Timeout after 5 seconds"
+                logger.warning("Room disconnection timed out, proceeding with forced cleanup")
+                # Force clear room reference as fallback
+                await self._force_room_cleanup()
+            except Exception as disconnect_error:
+                operation_errors["room_disconnect"] = str(disconnect_error)
+                self._log_call_error("Failed to disconnect from room", disconnect_error)
+                # Attempt forced cleanup as fallback
+                try:
+                    await self._force_room_cleanup()
+                    self._log_call_event("TERMINATION_STEP", {"step": "room_force_cleaned", "status": "success"})
+                except Exception as force_error:
+                    operation_errors["room_force_cleanup"] = str(force_error)
+                    logger.error(f"Failed to force clean room: {force_error}")
+                    critical_failure = True
 
-            # Disconnect from LiveKit room if connected
-            await self._disconnect_from_room()
-
-            # Clean up call resources
-            self._cleanup_call_resources()
-
-            # Set final call state
-            await self._set_call_state(CallState.ENDED)
-            self._log_call_event("CALL_TERMINATED", {"status": "success"})
-
-        except Exception as e:
-
-            logger.error(f"Error during call termination cleanup: {e}", exc_info=True)
-
-            await self._set_call_state(CallState.ERROR, error=str(e))
-            # Still try to clean up resources
+            # Step 6: Clean up call resources with error handling
             try:
                 self._cleanup_call_resources()
+                self._log_call_event("TERMINATION_STEP", {"step": "resources_cleaned", "status": "success"})
             except Exception as cleanup_error:
-                logger.error(f"Error during emergency cleanup: {cleanup_error}")
-            raise
+                operation_errors["resource_cleanup"] = str(cleanup_error)
+                self._log_call_error("Failed to clean up call resources", cleanup_error)
+                # Attempt emergency cleanup
+                try:
+                    await self._emergency_resource_cleanup()
+                    self._log_call_event("TERMINATION_STEP", {"step": "emergency_cleanup", "status": "success"})
+                except Exception as emergency_error:
+                    operation_errors["emergency_cleanup"] = str(emergency_error)
+                    logger.error(f"Emergency cleanup failed: {emergency_error}")
+                    critical_failure = True
+
+            # Step 7: Set final call state based on operation results
+            if operation_errors and critical_failure:
+                # Critical failure - set ERROR state with comprehensive error info
+                error_summary = f"Critical termination failure. Errors: {operation_errors}"
+                await self._set_call_state(CallState.ERROR, error=error_summary, operation_errors=operation_errors)
+                self._log_call_event("CALL_TERMINATED", {"status": "critical_failure", "errors": operation_errors})
+                raise RuntimeError(error_summary)
+            elif operation_errors:
+                # Partial failure - log warnings but consider termination successful
+                logger.warning(f"Call terminated with partial failures: {operation_errors}")
+                await self._set_call_state(CallState.ENDED, warnings=operation_errors)
+                self._log_call_event("CALL_TERMINATED", {"status": "partial_success", "warnings": operation_errors})
+            else:
+                # Complete success
+                await self._set_call_state(CallState.ENDED)
+                self._log_call_event("CALL_TERMINATED", {"status": "success"})
+
+        except Exception as e:
+            # Catastrophic failure during termination process
+            error_context = {
+                "original_error": str(e),
+                "operation_errors": operation_errors,
+                "call_state": self._call_state.name
+            }
+            
+            self._log_call_error("Catastrophic error during call termination", e, error_context)
+
+            # Set ERROR state with comprehensive context
+            await self._set_call_state(CallState.ERROR, error=str(e), context=error_context)
+            
+            # Attempt final emergency cleanup regardless of previous failures
+            await self._catastrophic_failure_cleanup()
+            
+            # Re-raise to maintain error propagation
+            raise RuntimeError(f"Call termination failed catastrophically: {e}") from e
 
     async def _disconnect_from_room(self) -> None:
         """Enhanced room disconnection logic with timeout and error handling.
@@ -755,6 +850,114 @@ class SimpleAgent(Agent):
                 logger.debug("Cleared room reference")
             except Exception as clear_error:
                 logger.error(f"Error clearing room reference: {clear_error}")
+
+    async def _force_room_cleanup(self) -> None:
+        """Force cleanup of room resources when graceful disconnect fails.
+        
+        This method is used as a fallback when normal room disconnection fails.
+        It forcibly clears the room reference and performs minimal cleanup.
+        """
+        try:
+            logger.info("Performing forced room cleanup")
+            
+            # Force clear room reference immediately
+            if hasattr(self, 'room'):
+                self.room = None
+                
+            # Reset any room-related state
+            if hasattr(self, '_agent_session'):
+                try:
+                    # Attempt to clear session room reference if it exists
+                    if hasattr(self._agent_session, 'room'):
+                        self._agent_session.room = None
+                except Exception as session_error:
+                    logger.debug(f"Could not clear session room reference: {session_error}")
+                    
+            logger.info("Forced room cleanup completed")
+            
+        except Exception as e:
+            logger.error(f"Error during forced room cleanup: {e}", exc_info=True)
+            # Don't re-raise - this is already a fallback mechanism
+
+    async def _emergency_resource_cleanup(self) -> None:
+        """Emergency cleanup when normal resource cleanup fails.
+        
+        This method attempts to clean up critical resources with minimal operations
+        to prevent resource leaks when normal cleanup fails.
+        """
+        try:
+            logger.info("Performing emergency resource cleanup")
+            
+            # Reset critical state variables
+            self.is_speaking = False
+            self.is_listening = False
+            
+            # Clear metadata with fallback
+            try:
+                if hasattr(self, '_call_metadata'):
+                    self._call_metadata.clear()
+            except Exception:
+                # Create new metadata dict if clearing fails
+                self._call_metadata = {}
+                
+            # Ensure session is cleared
+            try:
+                if hasattr(self, '_agent_session'):
+                    self._agent_session = None
+            except Exception as session_error:
+                logger.debug(f"Could not clear agent session: {session_error}")
+                
+            logger.info("Emergency resource cleanup completed")
+            
+        except Exception as e:
+            logger.error(f"Error during emergency resource cleanup: {e}", exc_info=True)
+            # Don't re-raise - this is emergency cleanup
+
+    async def _catastrophic_failure_cleanup(self) -> None:
+        """Final cleanup attempt when termination fails catastrophically.
+        
+        This method performs minimal, essential cleanup operations that should
+        work even when the system is in an unstable state.
+        """
+        try:
+            logger.critical("Performing catastrophic failure cleanup")
+            
+            # Force clear all references with individual try-catch blocks
+            try:
+                self.room = None
+            except Exception:
+                pass
+                
+            try:
+                self._agent_session = None
+            except Exception:
+                pass
+                
+            try:
+                self.is_speaking = False
+                self.is_listening = False
+            except Exception:
+                pass
+                
+            try:
+                # Reset call session if possible
+                if hasattr(self, 'call_session') and hasattr(self.call_session, 'reset'):
+                    self.call_session.reset()
+            except Exception:
+                pass
+                
+            try:
+                # Ensure we have clean metadata
+                self._call_metadata = {}
+            except Exception:
+                pass
+                
+            logger.critical("Catastrophic failure cleanup completed")
+            
+        except Exception as e:
+            # Even catastrophic cleanup failed - log but don't raise
+            logger.critical(f"Catastrophic failure cleanup itself failed: {e}")
+            # This is the last resort - no exceptions should propagate from here
 
 
 async def setup_room_handlers(room: rtc.Room, agent: SimpleAgent):
